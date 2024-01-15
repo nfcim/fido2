@@ -2,7 +2,6 @@ import 'package:convert/convert.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:elliptic/ecdh.dart';
 import 'package:elliptic/elliptic.dart';
-import 'package:fido2/fido2.dart';
 import 'package:fido2/src/cose.dart';
 import 'package:quiver/collection.dart';
 
@@ -34,7 +33,7 @@ class PinProtocolV1 extends PinProtocol {
     final pubBytes = hex.decode(pub.toHex().substring(2));
     final keyAgreement = EcdhEsHkdf256.fromPublicKey(pubBytes.sublist(0, 32), pubBytes.sublist(32, 64));
     final sharedSecret = computeSecret(priv, ec.hexToPublicKey('04${hex.encode(peerCoseKey[-2] + peerCoseKey[-3])}'));
-    return EncapsulateResult(keyAgreement, await sharedSecret);
+    return EncapsulateResult(keyAgreement, sharedSecret);
   }
 
   @override
