@@ -1,4 +1,4 @@
 library fido2;
 
 export 'src/ctap2/base.dart';
-export 'src/utils/string.dart';
+export 'src/ctap2/pin.dart';

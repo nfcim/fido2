@@ -45,13 +45,13 @@ class ES256 extends CoseKey {
 
   ES256(Map<int, dynamic> coseKeyParams) : super(coseKeyParams);
 
-  static ES256 fromPublicKey(List<int> publicKey) {
+  static ES256 fromPublicKey(List<int> x, List<int> y) {
     return ES256({
       1: 2,
       3: ES256.algorithm,
       -1: 1,
-      -2: publicKey.sublist(1, 33),
-      -3: publicKey.sublist(33),
+      -2: x,
+      -3: y,
     });
   }
 
@@ -72,13 +72,13 @@ class EcdhEsHkdf256 extends CoseKey {
 
   EcdhEsHkdf256(Map<int, dynamic> coseKeyParams) : super(coseKeyParams);
 
-  static EcdhEsHkdf256 fromPublicKey(List<int> publicKey) {
+  static EcdhEsHkdf256 fromPublicKey(List<int> x, List<int> y) {
     return EcdhEsHkdf256({
       1: 2,
       3: EcdhEsHkdf256.algorithm,
       -1: 1,
-      -2: publicKey.sublist(0, 32),
-      -3: publicKey.sublist(32),
+      -2: x,
+      -3: y,
     });
   }
 

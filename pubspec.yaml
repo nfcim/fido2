@@ -9,6 +9,9 @@ environment:
 dependencies:
   cbor: ^6.1.1
   convert: ^3.0.1
+  cryptography: ^2.7.0
+  elliptic: ^0.3.10
+  quiver: ^3.2.1
 
 dev_dependencies:
   lints: ^2.1.0
