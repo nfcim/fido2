@@ -46,7 +46,8 @@ class PinProtocolV1 extends PinProtocol {
   @override
   Future<List<int>> decrypt(List<int> key, List<int> ciphertext) async {
     final algorithm = AesCbc.with128bits(macAlgorithm: MacAlgorithm.empty, paddingAlgorithm: PaddingAlgorithm.zero);
-    return await algorithm.decrypt(SecretBox(ciphertext, nonce: List.filled(16, 0), mac: Mac.empty), secretKey: SecretKeyData(key));
+    return await algorithm.decrypt(SecretBox(ciphertext, nonce: List.filled(16, 0), mac: Mac.empty),
+        secretKey: SecretKeyData(key));
   }
 
   @override
