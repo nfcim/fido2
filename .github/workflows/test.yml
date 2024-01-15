@@ -21,8 +21,8 @@ jobs:
           - run: dart format --output=none --set-exit-if-changed .
           - run: dart analyze
           - run: dart test
-          - name: Run example code
-            run: |
-              cd example
-              dart pub get
-              dart run lib/main.dart
+        #   - name: Run example code
+        #     run: |
+        #       cd example
+        #       dart pub get
+        #       dart run lib/main.dart

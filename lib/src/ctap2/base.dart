@@ -1,5 +1,6 @@
 import 'package:cbor/cbor.dart' as cb;
 import 'package:cbor/simple.dart';
+
 import 'package:fido2/src/cose.dart';
 
 enum Ctap2Commands {
