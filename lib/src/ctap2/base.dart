@@ -185,7 +185,8 @@ class Ctap2 {
     var map = cbor.decode(data) as Map;
     var keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
     return ClientPinResponse(
-      keyAgreement: keyAgreementMap != null ? CoseKey.parse(keyAgreementMap) : null,
+      keyAgreement:
+          keyAgreementMap != null ? CoseKey.parse(keyAgreementMap) : null,
       pinUvAuthToken: (map[2] as List?)?.cast<int>(),
       pinRetries: map[3] as int?,
       powerCycleState: map[4] as bool?,

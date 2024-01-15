@@ -1,4 +1,3 @@
-import 'package:convert/convert.dart';
 import 'package:fido2/fido2.dart';
 import 'package:fido2/src/cose.dart';
 import 'package:test/test.dart';
@@ -21,7 +20,9 @@ void main() {
 
   group('ClientPin', () {
     test('Request1', () {
-      var request = Ctap2.makeClientPinRequest(ClientPinRequest(subCommand: ClientPinSubCommand.getKeyAgreement.value, pinUvAuthProtocol: 2));
+      var request = Ctap2.makeClientPinRequest(ClientPinRequest(
+          subCommand: ClientPinSubCommand.getKeyAgreement.value,
+          pinUvAuthProtocol: 2));
       expect(request, equals(hexStringToList('06A201020202')));
     });
 
@@ -31,7 +32,8 @@ void main() {
         pinUvAuthProtocol: 2,
         keyAgreement: EcdhEsHkdf256.fromPublicKey(hexStringToList(
             '9950CCD8C524DBAAB6D5ED7E4256B72A647920445DCA51DA5F1B2A6AEB9AAB1880CC342ABC60C6FD1E8101CB3AA1D34B43CAFA6C3CA5403D70DEC1C72EC637FD')),
-        pinUvAuthParam: hexStringToList('9941B629D9BAB9C8C578D5E7A3AE6201B7A2F90F02B238AA2674F4A976C17FF3'),
+        pinUvAuthParam: hexStringToList(
+            '9941B629D9BAB9C8C578D5E7A3AE6201B7A2F90F02B238AA2674F4A976C17FF3'),
         newPinEnc: hexStringToList(
             '75E69079A080945600397CC32ABE3B5CFD61C1BBBAD4CE71396EBB64D51D0198CC9D6FF8EBD14A6C9A134BE717CEBFB1CB25815B3AD0080DCC7414D8604DF1729E89EA54B1277DC701077C6ED5B8512A'),
       ));
