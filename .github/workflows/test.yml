@@ -1,0 +1,28 @@
+name: Test
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        if: "!contains(github.event.head_commit.message, 'ci skip')"
+        strategy:
+          matrix:
+            sdk: [stable, beta]
+
+        steps:
+          - uses: actions/checkout@v3
+          - uses: dart-lang/setup-dart@v1
+            with:
+              sdk: ${{ matrix.sdk }}
+          - run: dart pub get
+          - run: dart format --output=none --set-exit-if-changed .
+          - run: dart analyze
+          - run: dart test
+          - name: Run example code
+            run: |
+              cd example
+              dart pub get
+              dart run lib/main.dart

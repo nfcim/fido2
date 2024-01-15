@@ -1,10 +1,10 @@
 name: fido2
-description: A FIDO2 (CTAP2) library for dart
+description: FIDO2 (CTAP2) library for dart
 version: 0.0.1
 repository: https://github.com/nfcim/fido2
 
 environment:
-  sdk: ^3.2.4
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   cbor: ^6.1.1
