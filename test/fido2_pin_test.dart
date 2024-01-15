@@ -13,11 +13,15 @@ void main() {
       final priv = ec.generatePrivateKey();
       final pub = priv.publicKey;
       final pubBytes = hex.decode(pub.toHex().substring(2));
-      final peerCoseKey = EcdhEsHkdf256.fromPublicKey(pubBytes.sublist(0, 32), pubBytes.sublist(32, 64));
+      final peerCoseKey = EcdhEsHkdf256.fromPublicKey(
+          pubBytes.sublist(0, 32), pubBytes.sublist(32, 64));
 
       PinProtocolV1 pinProtocol = PinProtocolV1();
       EncapsulateResult result = await pinProtocol.encapsulate(peerCoseKey);
-      final sharedSecret = computeSecret(priv, ec.hexToPublicKey('04${hex.encode(result.coseKey[-2] + result.coseKey[-3])}'));
+      final sharedSecret = computeSecret(
+          priv,
+          ec.hexToPublicKey(
+              '04${hex.encode(result.coseKey[-2] + result.coseKey[-3])}'));
       expect(sharedSecret, equals(result.sharedSecret));
     });
 
@@ -40,7 +44,8 @@ void main() {
     test('authenticate', () async {
       final key = hex.decode('000102030405060708090a0b0c0d0e0f');
       final message = hex.decode('00112233445566778899aabbccddeeff');
-      final signature = hex.decode('32cd28477b88c12e515b0e1fd7330d19616a4a51f6c502d64fe6a93fe7f786fa');
+      final signature = hex.decode(
+          '32cd28477b88c12e515b0e1fd7330d19616a4a51f6c502d64fe6a93fe7f786fa');
       PinProtocolV1 pinProtocol = PinProtocolV1();
       expect(await pinProtocol.authenticate(key, message), equals(signature));
     });
@@ -48,11 +53,14 @@ void main() {
     test('verify', () async {
       final key = hex.decode('000102030405060708090a0b0c0d0e0f');
       final message = hex.decode('00112233445566778899aabbccddeeff');
-      final signature = hex.decode('32cd28477b88c12e515b0e1fd7330d19616a4a51f6c502d64fe6a93fe7f786fa');
-      final signatureFalse = hex.decode('32cd28477b88c12e515b0e1fd7330d19616a4a51f6c502d64fe6a93fe7f786fb');
+      final signature = hex.decode(
+          '32cd28477b88c12e515b0e1fd7330d19616a4a51f6c502d64fe6a93fe7f786fa');
+      final signatureFalse = hex.decode(
+          '32cd28477b88c12e515b0e1fd7330d19616a4a51f6c502d64fe6a93fe7f786fb');
       PinProtocolV1 pinProtocol = PinProtocolV1();
       expect(await pinProtocol.verify(key, message, signature), equals(true));
-      expect(await pinProtocol.verify(key, message, signatureFalse), equals(false));
+      expect(await pinProtocol.verify(key, message, signatureFalse),
+          equals(false));
     });
   });
 }

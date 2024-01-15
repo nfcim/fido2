@@ -18,7 +18,7 @@ jobs:
             with:
               sdk: ${{ matrix.sdk }}
           - run: dart pub get
-          - run: dart format --line-length=120 --output=none --set-exit-if-changed .
+          - run: dart format --output=none --set-exit-if-changed .
           - run: dart analyze
           - run: dart test
         #   - name: Run example code
