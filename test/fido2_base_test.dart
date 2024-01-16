@@ -4,7 +4,7 @@ import 'package:fido2/src/cose.dart';
 import 'package:fido2/src/ctap.dart';
 import 'package:test/test.dart';
 
-import 'fido2_ctap_test.dart';
+import 'fido2_ctap.dart';
 
 void main() {
   group('AuthenticatorInfo', () {
@@ -23,8 +23,8 @@ void main() {
 
     test('With Device', () async {
       MockDevice device = MockDevice();
-      Ctap2 ctap2 = Ctap2(device);
-      CtapResponse resp = await ctap2.getInfo();
+      Ctap2 ctap2 = await Ctap2.create(device);
+      CtapResponse resp = await ctap2.refreshInfo();
       expect(resp.status, equals(0));
       expect(resp.data, isA<AuthenticatorInfo>());
     });

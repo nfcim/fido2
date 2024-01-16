@@ -107,11 +107,24 @@ class ClientPinResponse {
 }
 
 class Ctap2 {
-  CtapDevice device;
+  late final AuthenticatorInfo _info;
+  final CtapDevice device;
 
-  Ctap2(this.device);
+  Ctap2._create(this.device);
 
-  Future<CtapResponse<AuthenticatorInfo>> getInfo() async {
+  static Future<Ctap2> create(CtapDevice device) async {
+    final ctap2 = Ctap2._create(device);
+    final res = await ctap2.refreshInfo();
+    if (res.status != 0) {
+      throw Exception('GetInfo failed.');
+    }
+    ctap2._info = res.data;
+    return ctap2;
+  }
+
+  AuthenticatorInfo get info => _info;
+
+  Future<CtapResponse<AuthenticatorInfo>> refreshInfo() async {
     final req = makeGetInfoRequest();
     final res = await device.transceive(req);
     return CtapResponse(res.status, parseGetInfoResponse(res.data));

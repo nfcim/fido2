@@ -6,7 +6,7 @@ import 'package:fido2/fido2.dart';
 import 'package:fido2/src/cose.dart';
 import 'package:test/test.dart';
 
-import 'fido2_ctap_test.dart';
+import 'fido2_ctap.dart';
 
 void main() {
   group('Protocol 1', () {
@@ -72,7 +72,7 @@ void main() {
   group('ClientPin', () {
     test('Constructor', () async {
       MockDevice device = MockDevice();
-      Ctap2 ctap2 = Ctap2(device);
+      Ctap2 ctap2 = await Ctap2.create(device);
       ClientPin cp = await ClientPin.create(ctap2);
       expect(cp.pinProtocolVersion, 1);
     });

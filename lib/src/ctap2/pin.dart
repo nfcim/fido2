@@ -6,7 +6,6 @@ import 'package:cryptography/helpers.dart';
 import 'package:elliptic/ecdh.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:fido2/fido2.dart';
-import 'package:fido2/src/cose.dart';
 import 'package:quiver/collection.dart';
 
 class EncapsulateResult {
@@ -190,7 +189,7 @@ class ClientPin {
       return cp;
     }
 
-    var res = await ctap.getInfo();
+    var res = await ctap.refreshInfo();
     if (res.status != 0) {
       throw Exception('GetInfo failed.');
     }
@@ -209,6 +208,16 @@ class ClientPin {
     return cp;
   }
 
+  /// Returns true if the authenticator [info] supports the ClientPin command.
+  static bool isSupported(AuthenticatorInfo info) {
+    return info.options?.containsKey('clientPin') ?? false;
+  }
+
+  /// Returns true if the authenticator [info] supports the pinUvAuthToken option.
+  static bool isTokenSupported(AuthenticatorInfo info) {
+    return info.options?.containsKey('pinUvAuthToken') ?? false;
+  }
+
   Future<EncapsulateResult> _getSharedSecret() async {
     final resp = await _ctap.clientPin(ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
@@ -219,25 +228,41 @@ class ClientPin {
     return _pinProtocol.encapsulate(resp.data.keyAgreement!);
   }
 
+  /// Get a PIN/UV token from the authenticator.
+  ///
+  /// [pin] is the PIN code.
+  /// [permissions] is the permissions to be granted to the token.
+  /// [permissionsRpId] is the RP ID to which the permissions apply.
   Future<List<int>> getPinToken(String pin,
-      List<ClientPinPermission>? permission, String? permissionsRpId) async {
+      {List<ClientPinPermission>? permissions, String? permissionsRpId}) async {
     final EncapsulateResult ss = await _getSharedSecret();
     final pinHash =
         (await Sha256().hash(utf8.encode(pin))).bytes.sublist(0, 16);
     final pinHashEnc = await _pinProtocol.encrypt(ss.sharedSecret, pinHash);
 
-    // TODO check permissions
+    int subCmd = ClientPinSubCommand.getPinToken.value;
+    if (ClientPin.isTokenSupported(_ctap.info)) {
+      subCmd =
+          ClientPinSubCommand.getPinUvAuthTokenUsingPinWithPermissions.value;
+    }
 
     final resp = await _ctap.clientPin(ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
-        subCommand: ClientPinSubCommand.getPinToken.value,
+        subCommand: subCmd,
         keyAgreement: ss.coseKey,
         pinHashEnc: pinHashEnc,
-        permissions: permission?.fold(0, (p, e) => p! | e.value),
+        permissions: permissions?.fold(0, (p, e) => p! | e.value),
         rpId: permissionsRpId));
 
-    // TODO: validate pin token
     return await _pinProtocol.decrypt(
         ss.sharedSecret, resp.data.pinUvAuthToken!);
+  }
+
+  /// Get the number of PIN retries remaining.
+  Future<int> getPinRetries() async {
+    final resp = await _ctap.clientPin(ClientPinRequest(
+        pinUvAuthProtocol: _pinProtocol.version,
+        subCommand: ClientPinSubCommand.getPinRetries.value));
+    return resp.data.pinRetries!;
   }
 }
