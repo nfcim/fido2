@@ -33,7 +33,7 @@ class PinProtocolV1 extends PinProtocol {
   @override
   int get version => 1;
 
-  final _aes = AesCbc.with128bits(
+  final _aes = AesCbc.with256bits(
       macAlgorithm: MacAlgorithm.empty,
       paddingAlgorithm: PaddingAlgorithm.zero);
 
@@ -153,7 +153,7 @@ enum ClientPinSubCommand {
   getPinToken(0x05),
   getPinUvAuthTokenUsingUvWithPermissions(0x06),
   getUvRetries(0x07),
-  getPinUvAuthTokenUsingPinWithPermissions(0x08);
+  getPinUvAuthTokenUsingPinWithPermissions(0x09);
 
   const ClientPinSubCommand(this.value);
 
@@ -225,7 +225,7 @@ class ClientPin {
     if (resp.status != 0) {
       throw Exception('ClientPin failed.');
     }
-    return _pinProtocol.encapsulate(resp.data.keyAgreement!);
+    return _pinProtocol.encapsulate(resp.data!.keyAgreement!);
   }
 
   /// Get a PIN/UV token from the authenticator.
@@ -235,6 +235,10 @@ class ClientPin {
   /// [permissionsRpId] is the RP ID to which the permissions apply.
   Future<List<int>> getPinToken(String pin,
       {List<ClientPinPermission>? permissions, String? permissionsRpId}) async {
+    if (!ClientPin.isSupported(_ctap.info)) {
+      throw Exception('getPinToken is not supported.');
+    }
+
     final EncapsulateResult ss = await _getSharedSecret();
     final pinHash =
         (await Sha256().hash(utf8.encode(pin))).bytes.sublist(0, 16);
@@ -242,6 +246,7 @@ class ClientPin {
 
     int subCmd = ClientPinSubCommand.getPinToken.value;
     if (ClientPin.isTokenSupported(_ctap.info)) {
+      assert(permissions != null);
       subCmd =
           ClientPinSubCommand.getPinUvAuthTokenUsingPinWithPermissions.value;
     }
@@ -255,14 +260,69 @@ class ClientPin {
         rpId: permissionsRpId));
 
     return await _pinProtocol.decrypt(
-        ss.sharedSecret, resp.data.pinUvAuthToken!);
+        ss.sharedSecret, resp.data!.pinUvAuthToken!);
   }
 
   /// Get the number of PIN retries remaining.
   Future<int> getPinRetries() async {
+    if (!ClientPin.isSupported(_ctap.info)) {
+      throw Exception('getPinRetries is not supported.');
+    }
+
     final resp = await _ctap.clientPin(ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
         subCommand: ClientPinSubCommand.getPinRetries.value));
-    return resp.data.pinRetries!;
+    return resp.data!.pinRetries!;
+  }
+
+  /// Set the [pin] of the authenticator.
+  ///
+  ///  This only works when no PIN is set. To change the PIN when set, use changePin.
+  Future<bool> setPin(String pin) async {
+    if (!ClientPin.isSupported(_ctap.info)) {
+      throw Exception('setPin is not supported.');
+    }
+
+    final EncapsulateResult ss = await _getSharedSecret();
+    final pinEnc = await _pinProtocol.encrypt(ss.sharedSecret, _padPin(pin));
+    final pinUvAuthParam =
+        await _pinProtocol.authenticate(ss.sharedSecret, pinEnc);
+    final resp = await _ctap.clientPin(ClientPinRequest(
+        pinUvAuthProtocol: _pinProtocol.version,
+        subCommand: ClientPinSubCommand.setPin.value,
+        newPinEnc: pinEnc,
+        pinUvAuthParam: pinUvAuthParam));
+    return resp.status == 0;
+  }
+
+  /// Change the PIN of the authenticator.
+  /// This only works when a PIN is already set. If no PIN is set, use setPin.
+  Future<bool> changePin(String oldPin, String newPin) async {
+    if (!ClientPin.isSupported(_ctap.info)) {
+      throw Exception('changePin is not supported.');
+    }
+
+    final EncapsulateResult ss = await _getSharedSecret();
+    final pinHash =
+        (await Sha256().hash(utf8.encode(oldPin))).bytes.sublist(0, 16);
+    final pinHashEnc = await _pinProtocol.encrypt(ss.sharedSecret, pinHash);
+    final newPinEnc =
+        await _pinProtocol.encrypt(ss.sharedSecret, _padPin(newPin));
+    final pinUvAuthParam = await _pinProtocol.authenticate(
+        ss.sharedSecret, newPinEnc + pinHashEnc);
+    final resp = await _ctap.clientPin(ClientPinRequest(
+        pinUvAuthProtocol: _pinProtocol.version,
+        subCommand: ClientPinSubCommand.changePin.value,
+        keyAgreement: ss.coseKey,
+        pinHashEnc: pinHashEnc,
+        newPinEnc: newPinEnc,
+        pinUvAuthParam: pinUvAuthParam));
+    return resp.status == 0;
+  }
+
+  /// Pad the PIN to 64 bytes.
+  List<int> _padPin(String pin) {
+    final pinBytes = utf8.encode(pin);
+    return pinBytes + List.filled(64 - pinBytes.length, 0);
   }
 }

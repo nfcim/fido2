@@ -27,6 +27,8 @@ class CtapCcid extends CtapDevice {
       }
       rapdu += await _card.transmit(Uint8List.fromList(capdu));
     } while (rapdu.length >= 2 && rapdu[rapdu.length - 2] == 0x61);
+    print('> ${hex.encode(capdu)}');
+    print('< ${hex.encode(rapdu)}');
     return CtapResponse(rapdu[0], rapdu.sublist(1, rapdu.length - 2));
   }
 }
@@ -53,6 +55,7 @@ void main() async {
     print(ctap.info.versions);
     final cp = await ClientPin.create(ctap);
     print(await cp.getPinRetries());
+    print(await cp.changePin('123456', '1234'));
 
     await card.disconnect(Disposition.resetCard);
   } finally {

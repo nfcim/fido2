@@ -130,11 +130,12 @@ class Ctap2 {
     return CtapResponse(res.status, parseGetInfoResponse(res.data));
   }
 
-  Future<CtapResponse<ClientPinResponse>> clientPin(
+  Future<CtapResponse<ClientPinResponse?>> clientPin(
       ClientPinRequest request) async {
     final req = makeClientPinRequest(request);
     final res = await device.transceive(req);
-    return CtapResponse(res.status, parseClientPinResponse(res.data));
+    return CtapResponse(
+        res.status, res.data.isEmpty ? null : parseClientPinResponse(res.data));
   }
 
   /// Make the request to get info from the authenticator.

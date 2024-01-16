@@ -3,7 +3,6 @@ import 'package:cryptography/cryptography.dart';
 import 'package:elliptic/ecdh.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:fido2/fido2.dart';
-import 'package:fido2/src/cose.dart';
 import 'package:test/test.dart';
 
 import 'fido2_ctap.dart';
@@ -29,17 +28,19 @@ void main() {
     });
 
     test('encrypt', () async {
-      final key = hex.decode('000102030405060708090a0b0c0d0e0f');
+      final key = hex.decode(
+          '000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f');
       final plaintext = hex.decode('00112233445566778899aabbccddeeff');
-      final ciphertext = hex.decode('69c4e0d86a7b0430d8cdb78070b4c55a');
+      final ciphertext = hex.decode('04a121e92033c921048917754f961b0d');
       PinProtocolV1 pinProtocol = PinProtocolV1();
       expect(await pinProtocol.encrypt(key, plaintext), equals(ciphertext));
     });
 
     test('decrypt', () async {
-      final key = hex.decode('000102030405060708090a0b0c0d0e0f');
+      final key = hex.decode(
+          '000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f');
       final plaintext = hex.decode('00112233445566778899aabbccddeeff');
-      final ciphertext = hex.decode('69c4e0d86a7b0430d8cdb78070b4c55a');
+      final ciphertext = hex.decode('04a121e92033c921048917754f961b0d');
       PinProtocolV1 pinProtocol = PinProtocolV1();
       expect(await pinProtocol.decrypt(key, ciphertext), equals(plaintext));
     });
