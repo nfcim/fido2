@@ -1,6 +1,7 @@
 import 'package:cbor/cbor.dart' as cb;
 import 'package:cbor/simple.dart';
 import 'package:fido2/src/cose.dart';
+import 'package:fido2/src/ctap.dart';
 
 enum Ctap2Commands {
   makeCredential(0x01),
@@ -67,21 +68,6 @@ class AuthenticatorInfo {
   });
 }
 
-enum ClientPinSubCommand {
-  getPinRetries(0x01),
-  getKeyAgreement(0x02),
-  setPin(0x03),
-  changePin(0x04),
-  getPinToken(0x05),
-  getPinUvAuthTokenUsingUvWithPermissions(0x06),
-  getUvRetries(0x07),
-  getPinUvAuthTokenUsingPinWithPermissions(0x08);
-
-  const ClientPinSubCommand(this.value);
-
-  final int value;
-}
-
 class ClientPinRequest {
   final int? pinUvAuthProtocol;
   final int subCommand;
@@ -121,6 +107,23 @@ class ClientPinResponse {
 }
 
 class Ctap2 {
+  CtapDevice device;
+
+  Ctap2(this.device);
+
+  Future<CtapResponse<AuthenticatorInfo>> getInfo() async {
+    final req = makeGetInfoRequest();
+    final res = await device.transceive(req);
+    return CtapResponse(res.status, parseGetInfoResponse(res.data));
+  }
+
+  Future<CtapResponse<ClientPinResponse>> clientPin(
+      ClientPinRequest request) async {
+    final req = makeClientPinRequest(request);
+    final res = await device.transceive(req);
+    return CtapResponse(res.status, parseClientPinResponse(res.data));
+  }
+
   /// Make the request to get info from the authenticator.
   static List<int> makeGetInfoRequest() {
     return [Ctap2Commands.getInfo.value];
@@ -128,7 +131,7 @@ class Ctap2 {
 
   /// Parse the response from the authenticator.
   static AuthenticatorInfo parseGetInfoResponse(List<int> data) {
-    var map = cbor.decode(data) as Map;
+    final map = cbor.decode(data) as Map;
     return AuthenticatorInfo(
       versions: (map[1] as List).cast<String>(),
       extensions: (map[2] as List?)?.cast<String>(),
@@ -155,7 +158,7 @@ class Ctap2 {
   }
 
   static List<int> makeClientPinRequest(ClientPinRequest request) {
-    var map = <int, dynamic>{};
+    final map = <int, dynamic>{};
     if (request.pinUvAuthProtocol != null) {
       map[1] = request.pinUvAuthProtocol;
     }
@@ -182,8 +185,8 @@ class Ctap2 {
   }
 
   static ClientPinResponse parseClientPinResponse(List<int> data) {
-    var map = cbor.decode(data) as Map;
-    var keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
+    final map = cbor.decode(data) as Map;
+    final keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
     return ClientPinResponse(
       keyAgreement:
           keyAgreementMap != null ? CoseKey.parse(keyAgreementMap) : null,

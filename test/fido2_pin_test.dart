@@ -1,10 +1,12 @@
 import 'package:convert/convert.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:elliptic/ecdh.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:fido2/fido2.dart';
 import 'package:fido2/src/cose.dart';
-import 'package:fido2/src/ctap2/pin.dart';
 import 'package:test/test.dart';
+
+import 'fido2_ctap_test.dart';
 
 void main() {
   group('Protocol 1', () {
@@ -18,11 +20,12 @@ void main() {
 
       PinProtocolV1 pinProtocol = PinProtocolV1();
       EncapsulateResult result = await pinProtocol.encapsulate(peerCoseKey);
-      final sharedSecret = computeSecret(
+      final sharedSecretX = computeSecret(
           priv,
           ec.hexToPublicKey(
               '04${hex.encode(result.coseKey[-2] + result.coseKey[-3])}'));
-      expect(sharedSecret, equals(result.sharedSecret));
+      final sharedSecret = await Sha256().hash(sharedSecretX);
+      expect(sharedSecret.bytes, equals(result.sharedSecret));
     });
 
     test('encrypt', () async {
@@ -61,6 +64,17 @@ void main() {
       expect(await pinProtocol.verify(key, message, signature), equals(true));
       expect(await pinProtocol.verify(key, message, signatureFalse),
           equals(false));
+    });
+  });
+
+  group('Protocol 2', () {});
+
+  group('ClientPin', () {
+    test('Constructor', () async {
+      MockDevice device = MockDevice();
+      Ctap2 ctap2 = Ctap2(device);
+      ClientPin cp = await ClientPin.create(ctap2);
+      expect(cp.pinProtocolVersion, 1);
     });
   });
 }

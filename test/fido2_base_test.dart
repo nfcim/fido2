@@ -1,7 +1,10 @@
 import 'package:convert/convert.dart';
 import 'package:fido2/fido2.dart';
 import 'package:fido2/src/cose.dart';
+import 'package:fido2/src/ctap.dart';
 import 'package:test/test.dart';
+
+import 'fido2_ctap_test.dart';
 
 void main() {
   group('AuthenticatorInfo', () {
@@ -16,6 +19,14 @@ void main() {
       var info = Ctap2.parseGetInfoResponse(response);
       expect(info.versions, equals(['U2F_V2', 'FIDO_2_0', 'FIDO_2_1']));
       expect(info.options, contains('rk'));
+    });
+
+    test('With Device', () async {
+      MockDevice device = MockDevice();
+      Ctap2 ctap2 = Ctap2(device);
+      CtapResponse resp = await ctap2.getInfo();
+      expect(resp.status, equals(0));
+      expect(resp.data, isA<AuthenticatorInfo>());
     });
   });
 
