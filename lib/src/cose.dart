@@ -6,7 +6,7 @@ abstract class CoseKey extends MapView<int, dynamic> {
   static const int? algorithm = null;
 
   // Constructor with optional parameters
-  CoseKey(Map<int, dynamic> coseKeyParams) : super(coseKeyParams);
+  CoseKey(super.coseKeyParams);
 
   // Method to verify a signature
   void verify(List<int> message, List<int> signature) {
@@ -37,13 +37,13 @@ abstract class CoseKey extends MapView<int, dynamic> {
 }
 
 class UnsupportedKey extends CoseKey {
-  UnsupportedKey(Map<int, dynamic> coseKeyParams) : super(coseKeyParams);
+  UnsupportedKey(super.coseKeyParams);
 }
 
 class ES256 extends CoseKey {
   static const int algorithm = -7;
 
-  ES256(Map<int, dynamic> coseKeyParams) : super(coseKeyParams);
+  ES256(super.coseKeyParams);
 
   static ES256 fromPublicKey(List<int> x, List<int> y) {
     return ES256({
@@ -70,7 +70,7 @@ class ES256 extends CoseKey {
 class EcdhEsHkdf256 extends CoseKey {
   static const int algorithm = -25;
 
-  EcdhEsHkdf256(Map<int, dynamic> coseKeyParams) : super(coseKeyParams);
+  EcdhEsHkdf256(super.coseKeyParams);
 
   static EcdhEsHkdf256 fromPublicKey(List<int> x, List<int> y) {
     return EcdhEsHkdf256({

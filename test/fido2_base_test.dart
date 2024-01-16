@@ -1,7 +1,5 @@
 import 'package:convert/convert.dart';
 import 'package:fido2/fido2.dart';
-import 'package:fido2/src/cose.dart';
-import 'package:fido2/src/ctap.dart';
 import 'package:test/test.dart';
 
 import 'fido2_ctap.dart';
