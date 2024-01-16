@@ -20,6 +20,34 @@ enum Ctap2Commands {
   final int value;
 }
 
+class PublickeyCredentialRpEntity {
+  final String id;
+
+  PublickeyCredentialRpEntity({required this.id});
+}
+
+class PublickeyCredentialUserEntity {
+  final List<int> id;
+  final String name;
+  final String displayName;
+
+  PublickeyCredentialUserEntity({
+    required this.id,
+    required this.name,
+    required this.displayName,
+  });
+}
+
+class PublicKeyCredentialDescriptor {
+  final String type;
+  final List<int> id;
+
+  PublicKeyCredentialDescriptor({
+    required this.type,
+    required this.id,
+  });
+}
+
 class AuthenticatorInfo {
   final List<String> versions;
   final List<String>? extensions;
@@ -106,6 +134,48 @@ class ClientPinResponse {
   });
 }
 
+class CredentialManagementRequest {
+  final int subCommand;
+  final Map<int, dynamic>? params;
+  final int? pinUvAuthProtocol;
+  final List<int>? pinUvAuthParam;
+
+  CredentialManagementRequest({
+    required this.subCommand,
+    this.params,
+    this.pinUvAuthProtocol,
+    this.pinUvAuthParam,
+  });
+}
+
+class CredentialManagementResponse {
+  final int? existingResidentCredentials;
+  final int? maxPossibleRemainingResidentCredentialsCount;
+  final PublickeyCredentialRpEntity? rp;
+  final List<int>? rpIdHash;
+  final int? totalRPs;
+  final PublickeyCredentialUserEntity? user;
+  final PublicKeyCredentialDescriptor? credentialId;
+  final CoseKey? publicKey;
+  final int? totalCredentials;
+  final int? credProtect;
+  final List<int>? largeBlobKey;
+
+  CredentialManagementResponse({
+    this.existingResidentCredentials,
+    this.maxPossibleRemainingResidentCredentialsCount,
+    this.rp,
+    this.rpIdHash,
+    this.totalRPs,
+    this.user,
+    this.credentialId,
+    this.publicKey,
+    this.totalCredentials,
+    this.credProtect,
+    this.largeBlobKey,
+  });
+}
+
 class Ctap2 {
   late final AuthenticatorInfo _info;
   final CtapDevice device;
@@ -136,6 +206,14 @@ class Ctap2 {
     final res = await device.transceive(req);
     return CtapResponse(
         res.status, res.data.isEmpty ? null : parseClientPinResponse(res.data));
+  }
+
+  Future<CtapResponse<CredentialManagementResponse?>> credentialManagement(
+      CredentialManagementRequest request) async {
+    final req = makeCredentialManagementRequest(request);
+    final res = await device.transceive(req);
+    return CtapResponse(res.status,
+        res.data.isEmpty ? null : parseCredentialManagementResponse(res.data));
   }
 
   /// Make the request to get info from the authenticator.
@@ -171,6 +249,7 @@ class Ctap2 {
     );
   }
 
+  /// Make the request to clientPin.
   static List<int> makeClientPinRequest(ClientPinRequest request) {
     final map = <int, dynamic>{};
     if (request.pinUvAuthProtocol != null) {
@@ -198,6 +277,7 @@ class Ctap2 {
     return [Ctap2Commands.clientPIN.value] + cbor.encode(map);
   }
 
+  /// Parse the response from clientPin.
   static ClientPinResponse parseClientPinResponse(List<int> data) {
     final map = cbor.decode(data) as Map;
     final keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
@@ -208,6 +288,59 @@ class Ctap2 {
       pinRetries: map[3] as int?,
       powerCycleState: map[4] as bool?,
       uvRetries: map[5] as int?,
+    );
+  }
+
+  /// Make the request to credentialManagement.
+  static List<int> makeCredentialManagementRequest(
+      CredentialManagementRequest request) {
+    final map = <int, dynamic>{};
+    map[1] = request.subCommand;
+    if (request.params != null) {
+      map[2] = request.params;
+    }
+    if (request.pinUvAuthProtocol != null) {
+      map[3] = request.pinUvAuthProtocol;
+    }
+    if (request.pinUvAuthParam != null) {
+      map[4] = cb.CborBytes(request.pinUvAuthParam!);
+    }
+    return [Ctap2Commands.credentialManagement.value] + cbor.encode(map);
+  }
+
+  /// Parse the response from credentialManagement.
+  static CredentialManagementResponse parseCredentialManagementResponse(
+      List<int> data) {
+    final map = cbor.decode(data) as Map;
+    final rpMap = (map[3] as Map?)?.cast<String, dynamic>();
+    final userMap = (map[6] as Map?)?.cast<String, dynamic>();
+    final credentialIdMap = (map[7] as Map?)?.cast<String, dynamic>();
+    final publicKeyMap = (map[8] as Map?)?.cast<int, dynamic>();
+    return CredentialManagementResponse(
+      existingResidentCredentials: map[1] as int?,
+      maxPossibleRemainingResidentCredentialsCount: map[2] as int?,
+      rp: rpMap != null
+          ? PublickeyCredentialRpEntity(id: rpMap['id'] as String)
+          : null,
+      rpIdHash: (map[4] as List?)?.cast<int>(),
+      totalRPs: map[5] as int?,
+      user: userMap != null
+          ? PublickeyCredentialUserEntity(
+              id: (userMap['id'] as cb.CborBytes).bytes,
+              name: userMap['name'] as String,
+              displayName: userMap['displayName'] as String,
+            )
+          : null,
+      credentialId: credentialIdMap != null
+          ? PublicKeyCredentialDescriptor(
+              type: credentialIdMap['type'] as String,
+              id: (credentialIdMap['id'] as cb.CborBytes).bytes,
+            )
+          : null,
+      publicKey: publicKeyMap != null ? CoseKey.parse(publicKeyMap) : null,
+      totalCredentials: map[9] as int?,
+      credProtect: map[10] as int?,
+      largeBlobKey: (map[11] as List?)?.cast<int>(),
     );
   }
 }

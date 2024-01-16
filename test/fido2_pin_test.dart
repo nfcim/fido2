@@ -74,7 +74,7 @@ void main() {
     test('Constructor', () async {
       MockDevice device = MockDevice();
       Ctap2 ctap2 = await Ctap2.create(device);
-      ClientPin cp = await ClientPin.create(ctap2);
+      ClientPin cp = ClientPin(ctap2);
       expect(cp.pinProtocolVersion, 1);
     });
   });

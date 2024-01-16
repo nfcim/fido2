@@ -8,3 +8,9 @@ class CtapResponse<T> {
 abstract class CtapDevice {
   Future<CtapResponse<List<int>>> transceive(List<int> command);
 }
+
+class CtapException {
+  final int errorCode;
+
+  CtapException(this.errorCode);
+}

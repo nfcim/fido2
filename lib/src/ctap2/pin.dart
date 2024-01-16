@@ -179,33 +179,24 @@ class ClientPin {
 
   get pinProtocolVersion => _pinProtocol.version;
 
-  ClientPin._create(this._ctap);
-
-  static Future<ClientPin> create(Ctap2 ctap,
-      {PinProtocol? pinProtocol}) async {
-    var cp = ClientPin._create(ctap);
+  ClientPin(this._ctap, {PinProtocol? pinProtocol}) {
     if (pinProtocol != null) {
-      cp._pinProtocol = pinProtocol;
-      return cp;
+      _pinProtocol = pinProtocol;
+      return;
     }
 
-    var res = await ctap.refreshInfo();
-    if (res.status != 0) {
-      throw Exception('GetInfo failed.');
-    }
-    if (res.data.pinUvAuthProtocols != null) {
-      if (res.data.pinUvAuthProtocols![0] == 1) {
-        cp._pinProtocol = PinProtocolV1();
-      } else if (res.data.pinUvAuthProtocols![0] == 2) {
-        cp._pinProtocol = PinProtocolV2();
+    // detect pin protocol version from authenticator info
+    if (_ctap.info.pinUvAuthProtocols != null) {
+      if (_ctap.info.pinUvAuthProtocols![0] == 1) {
+        _pinProtocol = PinProtocolV1();
+      } else if (_ctap.info.pinUvAuthProtocols![0] == 2) {
+        _pinProtocol = PinProtocolV2();
       } else {
         throw Exception('Unknown pinUvAuthProtocol.');
       }
     } else {
-      cp._pinProtocol = PinProtocolV1();
+      _pinProtocol = PinProtocolV1();
     }
-
-    return cp;
   }
 
   /// Returns true if the authenticator [info] supports the ClientPin command.
@@ -214,7 +205,7 @@ class ClientPin {
   }
 
   /// Returns true if the authenticator [info] supports the pinUvAuthToken option.
-  static bool isTokenSupported(AuthenticatorInfo info) {
+  static bool isPinUvAuthTokenSupported(AuthenticatorInfo info) {
     return info.options?.containsKey('pinUvAuthToken') ?? false;
   }
 
@@ -245,7 +236,7 @@ class ClientPin {
     final pinHashEnc = await _pinProtocol.encrypt(ss.sharedSecret, pinHash);
 
     int subCmd = ClientPinSubCommand.getPinToken.value;
-    if (ClientPin.isTokenSupported(_ctap.info)) {
+    if (ClientPin.isPinUvAuthTokenSupported(_ctap.info)) {
       assert(permissions != null);
       subCmd =
           ClientPinSubCommand.getPinUvAuthTokenUsingPinWithPermissions.value;
