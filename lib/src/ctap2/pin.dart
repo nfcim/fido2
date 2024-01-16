@@ -96,10 +96,6 @@ class PinProtocolV2 extends PinProtocolV1 {
   @override
   int get version => 2;
 
-  final _aes = AesCbc.with128bits(
-      macAlgorithm: MacAlgorithm.empty,
-      paddingAlgorithm: PaddingAlgorithm.zero);
-
   @override
   Future<List<int>> _kdf(List<int> z) async {
     final algorithm = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
@@ -211,5 +207,37 @@ class ClientPin {
     }
 
     return cp;
+  }
+
+  Future<EncapsulateResult> _getSharedSecret() async {
+    final resp = await _ctap.clientPin(ClientPinRequest(
+        pinUvAuthProtocol: _pinProtocol.version,
+        subCommand: ClientPinSubCommand.getKeyAgreement.value));
+    if (resp.status != 0) {
+      throw Exception('ClientPin failed.');
+    }
+    return _pinProtocol.encapsulate(resp.data.keyAgreement!);
+  }
+
+  Future<List<int>> getPinToken(String pin,
+      List<ClientPinPermission>? permission, String? permissionsRpId) async {
+    final EncapsulateResult ss = await _getSharedSecret();
+    final pinHash =
+        (await Sha256().hash(utf8.encode(pin))).bytes.sublist(0, 16);
+    final pinHashEnc = await _pinProtocol.encrypt(ss.sharedSecret, pinHash);
+
+    // TODO check permissions
+
+    final resp = await _ctap.clientPin(ClientPinRequest(
+        pinUvAuthProtocol: _pinProtocol.version,
+        subCommand: ClientPinSubCommand.getPinToken.value,
+        keyAgreement: ss.coseKey,
+        pinHashEnc: pinHashEnc,
+        permissions: permission?.fold(0, (p, e) => p! | e.value),
+        rpId: permissionsRpId));
+
+    // TODO: validate pin token
+    return await _pinProtocol.decrypt(
+        ss.sharedSecret, resp.data.pinUvAuthToken!);
   }
 }
