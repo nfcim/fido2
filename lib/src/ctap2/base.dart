@@ -42,6 +42,14 @@ class PublicKeyCredentialUserEntity {
     required this.displayName,
   });
 
+  CborValue toCbor() {
+    return CborValue({
+      'id': CborBytes(id),
+      'name': name,
+      'displayName': displayName,
+    });
+  }
+
   @override
   String toString() {
     return 'PublickeyCredentialUserEntity(id: ${hex.encode(id)}, name: $name, displayName: $displayName)';
@@ -56,6 +64,13 @@ class PublicKeyCredentialDescriptor {
     required this.type,
     required this.id,
   });
+
+  CborValue toCbor() {
+    return CborValue({
+      'type': type,
+      'id': CborBytes(id),
+    });
+  }
 
   @override
   String toString() {

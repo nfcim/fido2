@@ -52,7 +52,7 @@ class CmCredential {
   final PublicKeyCredentialUserEntity user;
   final PublicKeyCredentialDescriptor credentialId;
   final CoseKey publicKey;
-  final int totalCredentials;
+  final int? totalCredentials;
   final int credProtect;
   final List<int>? largeBlobKey;
 
@@ -60,7 +60,7 @@ class CmCredential {
     required this.user,
     required this.credentialId,
     required this.publicKey,
-    required this.totalCredentials,
+    this.totalCredentials,
     required this.credProtect,
     this.largeBlobKey,
   });
@@ -154,10 +154,48 @@ class CredentialManagement {
       user: resp.data!.user!,
       credentialId: resp.data!.credentialId!,
       publicKey: resp.data!.publicKey!,
-      totalCredentials: resp.data!.totalCredentials!,
       credProtect: resp.data!.credProtect!,
       largeBlobKey: resp.data!.largeBlobKey,
     );
+  }
+
+  Future<List<CmCredential>> enumerateCredentials(List<int> rpIdHash) async {
+    final credentials = <CmCredential>[];
+    var credential = await enumerateCredentialsBegin(rpIdHash);
+    int totalCredentials = credential.totalCredentials!;
+    credentials.add(credential);
+    while (totalCredentials > credentials.length) {
+      credential = await enumerateCredentialsGetNextCredential();
+      credentials.add(credential);
+    }
+    return credentials;
+  }
+
+  Future<void> deleteCredential(
+      PublicKeyCredentialDescriptor credentialId) async {
+    final resp = await _invoke(
+        CredentialManagementSubCommand.deleteCredential.value,
+        params: {
+          CredentialManagementSubCommandParams.credentialId.value:
+              credentialId.toCbor()
+        });
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
+  }
+
+  Future<void> updateUserInformation(PublicKeyCredentialDescriptor credentialId,
+      PublicKeyCredentialUserEntity user) async {
+    final resp = await _invoke(
+        CredentialManagementSubCommand.updateUserInformation.value,
+        params: {
+          CredentialManagementSubCommandParams.credentialId.value:
+              credentialId.toCbor(),
+          CredentialManagementSubCommandParams.user.value: user.toCbor()
+        });
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
   }
 
   Future<CtapResponse<CredentialManagementResponse?>> _invoke(int subCommand,
