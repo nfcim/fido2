@@ -1,5 +1,5 @@
-import 'package:cbor/cbor.dart' as cb;
-import 'package:cbor/simple.dart';
+import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import 'package:fido2/src/cose.dart';
 import 'package:fido2/src/ctap.dart';
 
@@ -24,18 +24,28 @@ class PublickeyCredentialRpEntity {
   final String id;
 
   PublickeyCredentialRpEntity({required this.id});
+
+  @override
+  String toString() {
+    return 'PublickeyCredentialRpEntity(id: $id)';
+  }
 }
 
-class PublickeyCredentialUserEntity {
+class PublicKeyCredentialUserEntity {
   final List<int> id;
   final String name;
   final String displayName;
 
-  PublickeyCredentialUserEntity({
+  PublicKeyCredentialUserEntity({
     required this.id,
     required this.name,
     required this.displayName,
   });
+
+  @override
+  String toString() {
+    return 'PublickeyCredentialUserEntity(id: ${hex.encode(id)}, name: $name, displayName: $displayName)';
+  }
 }
 
 class PublicKeyCredentialDescriptor {
@@ -46,6 +56,11 @@ class PublicKeyCredentialDescriptor {
     required this.type,
     required this.id,
   });
+
+  @override
+  String toString() {
+    return 'PublicKeyCredentialDescriptor(type: $type, id: ${hex.encode(id)})';
+  }
 }
 
 class AuthenticatorInfo {
@@ -149,12 +164,12 @@ class CredentialManagementRequest {
 }
 
 class CredentialManagementResponse {
-  final int? existingResidentCredentials;
+  final int? existingResidentCredentialsCount;
   final int? maxPossibleRemainingResidentCredentialsCount;
   final PublickeyCredentialRpEntity? rp;
   final List<int>? rpIdHash;
   final int? totalRPs;
-  final PublickeyCredentialUserEntity? user;
+  final PublicKeyCredentialUserEntity? user;
   final PublicKeyCredentialDescriptor? credentialId;
   final CoseKey? publicKey;
   final int? totalCredentials;
@@ -162,7 +177,7 @@ class CredentialManagementResponse {
   final List<int>? largeBlobKey;
 
   CredentialManagementResponse({
-    this.existingResidentCredentials,
+    this.existingResidentCredentialsCount,
     this.maxPossibleRemainingResidentCredentialsCount,
     this.rp,
     this.rpIdHash,
@@ -223,7 +238,7 @@ class Ctap2 {
 
   /// Parse the response from the authenticator.
   static AuthenticatorInfo parseGetInfoResponse(List<int> data) {
-    final map = cbor.decode(data) as Map;
+    final map = cbor.decode(data).toObject() as Map;
     return AuthenticatorInfo(
       versions: (map[1] as List).cast<String>(),
       extensions: (map[2] as List?)?.cast<String>(),
@@ -260,13 +275,13 @@ class Ctap2 {
       map[3] = request.keyAgreement!.toCbor();
     }
     if (request.pinUvAuthParam != null) {
-      map[4] = cb.CborBytes(request.pinUvAuthParam!);
+      map[4] = CborBytes(request.pinUvAuthParam!);
     }
     if (request.newPinEnc != null) {
-      map[5] = cb.CborBytes(request.newPinEnc!);
+      map[5] = CborBytes(request.newPinEnc!);
     }
     if (request.pinHashEnc != null) {
-      map[6] = cb.CborBytes(request.pinHashEnc!);
+      map[6] = CborBytes(request.pinHashEnc!);
     }
     if (request.permissions != null) {
       map[9] = request.permissions;
@@ -274,12 +289,12 @@ class Ctap2 {
     if (request.rpId != null) {
       map[10] = request.rpId;
     }
-    return [Ctap2Commands.clientPIN.value] + cbor.encode(map);
+    return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
   }
 
   /// Parse the response from clientPin.
   static ClientPinResponse parseClientPinResponse(List<int> data) {
-    final map = cbor.decode(data) as Map;
+    final map = cbor.decode(data).toObject() as Map;
     final keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
     return ClientPinResponse(
       keyAgreement:
@@ -303,21 +318,22 @@ class Ctap2 {
       map[3] = request.pinUvAuthProtocol;
     }
     if (request.pinUvAuthParam != null) {
-      map[4] = cb.CborBytes(request.pinUvAuthParam!);
+      map[4] = CborBytes(request.pinUvAuthParam!);
     }
-    return [Ctap2Commands.credentialManagement.value] + cbor.encode(map);
+    return [Ctap2Commands.credentialManagement.value] +
+        cbor.encode(CborValue(map));
   }
 
   /// Parse the response from credentialManagement.
   static CredentialManagementResponse parseCredentialManagementResponse(
       List<int> data) {
-    final map = cbor.decode(data) as Map;
+    final map = cbor.decode(data).toObject() as Map;
     final rpMap = (map[3] as Map?)?.cast<String, dynamic>();
     final userMap = (map[6] as Map?)?.cast<String, dynamic>();
     final credentialIdMap = (map[7] as Map?)?.cast<String, dynamic>();
     final publicKeyMap = (map[8] as Map?)?.cast<int, dynamic>();
     return CredentialManagementResponse(
-      existingResidentCredentials: map[1] as int?,
+      existingResidentCredentialsCount: map[1] as int?,
       maxPossibleRemainingResidentCredentialsCount: map[2] as int?,
       rp: rpMap != null
           ? PublickeyCredentialRpEntity(id: rpMap['id'] as String)
@@ -325,8 +341,8 @@ class Ctap2 {
       rpIdHash: (map[4] as List?)?.cast<int>(),
       totalRPs: map[5] as int?,
       user: userMap != null
-          ? PublickeyCredentialUserEntity(
-              id: (userMap['id'] as cb.CborBytes).bytes,
+          ? PublicKeyCredentialUserEntity(
+              id: CborBytes(userMap['id']).bytes,
               name: userMap['name'] as String,
               displayName: userMap['displayName'] as String,
             )
@@ -334,7 +350,7 @@ class Ctap2 {
       credentialId: credentialIdMap != null
           ? PublicKeyCredentialDescriptor(
               type: credentialIdMap['type'] as String,
-              id: (credentialIdMap['id'] as cb.CborBytes).bytes,
+              id: CborBytes(credentialIdMap['id']).bytes,
             )
           : null,
       publicKey: publicKeyMap != null ? CoseKey.parse(publicKeyMap) : null,

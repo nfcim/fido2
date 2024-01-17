@@ -1,4 +1,5 @@
-import 'package:cbor/simple.dart';
+import 'package:cbor/cbor.dart';
+import 'package:fido2/src/cose.dart';
 import 'package:fido2/src/ctap.dart';
 import 'package:fido2/src/ctap2/base.dart';
 import 'package:fido2/src/ctap2/pin.dart';
@@ -27,6 +28,44 @@ enum CredentialManagementSubCommandParams {
   final int value;
 }
 
+class CmMetadata {
+  final int existingResidentCredentialsCount;
+  final int maxPossibleRemainingResidentCredentialsCount;
+
+  CmMetadata({
+    required this.existingResidentCredentialsCount,
+    required this.maxPossibleRemainingResidentCredentialsCount,
+  });
+}
+
+class CmRp {
+  final PublickeyCredentialRpEntity rp;
+  final List<int> rpIdHash;
+
+  CmRp({
+    required this.rp,
+    required this.rpIdHash,
+  });
+}
+
+class CmCredential {
+  final PublicKeyCredentialUserEntity user;
+  final PublicKeyCredentialDescriptor credentialId;
+  final CoseKey publicKey;
+  final int totalCredentials;
+  final int credProtect;
+  final List<int>? largeBlobKey;
+
+  CmCredential({
+    required this.user,
+    required this.credentialId,
+    required this.publicKey,
+    required this.totalCredentials,
+    required this.credProtect,
+    this.largeBlobKey,
+  });
+}
+
 class CredentialManagement {
   final Ctap2 _ctap;
   final PinProtocol _pinProtocol;
@@ -44,13 +83,81 @@ class CredentialManagement {
     return info.options?.containsKey('credMgmt') ?? false;
   }
 
-  Future<CredentialManagementResponse> getMetadata() async {
+  Future<CmMetadata> getMetadata() async {
     final resp =
         await _invoke(CredentialManagementSubCommand.getCredsMetadata.value);
     if (resp.status != 0) {
       throw CtapException(resp.status);
     }
-    return resp.data!;
+    return CmMetadata(
+      existingResidentCredentialsCount:
+          resp.data!.existingResidentCredentialsCount!,
+      maxPossibleRemainingResidentCredentialsCount:
+          resp.data!.maxPossibleRemainingResidentCredentialsCount!,
+    );
+  }
+
+  Future<CmRp> enumerateRpsBegin() async {
+    final resp =
+        await _invoke(CredentialManagementSubCommand.enumerateRpsBegin.value);
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
+    return CmRp(
+      rp: resp.data!.rp!,
+      rpIdHash: resp.data!.rpIdHash!,
+    );
+  }
+
+  Future<CmRp> enumerateRpsGetNextRp() async {
+    final resp = await _invoke(
+        CredentialManagementSubCommand.enumerateRpsGetNextRp.value,
+        auth: false);
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
+    return CmRp(
+      rp: resp.data!.rp!,
+      rpIdHash: resp.data!.rpIdHash!,
+    );
+  }
+
+  Future<CmCredential> enumerateCredentialsBegin(List<int> rpIdHash) async {
+    final resp = await _invoke(
+        CredentialManagementSubCommand.enumerateCredentialsBegin.value,
+        params: {
+          CredentialManagementSubCommandParams.rpIdHash.value:
+              CborBytes(rpIdHash)
+        });
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
+    return CmCredential(
+      user: resp.data!.user!,
+      credentialId: resp.data!.credentialId!,
+      publicKey: resp.data!.publicKey!,
+      totalCredentials: resp.data!.totalCredentials!,
+      credProtect: resp.data!.credProtect!,
+      largeBlobKey: resp.data!.largeBlobKey,
+    );
+  }
+
+  Future<CmCredential> enumerateCredentialsGetNextCredential() async {
+    final resp = await _invoke(
+        CredentialManagementSubCommand
+            .enumerateCredentialsGetNextCredential.value,
+        auth: false);
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
+    return CmCredential(
+      user: resp.data!.user!,
+      credentialId: resp.data!.credentialId!,
+      publicKey: resp.data!.publicKey!,
+      totalCredentials: resp.data!.totalCredentials!,
+      credProtect: resp.data!.credProtect!,
+      largeBlobKey: resp.data!.largeBlobKey,
+    );
   }
 
   Future<CtapResponse<CredentialManagementResponse?>> _invoke(int subCommand,
@@ -59,7 +166,7 @@ class CredentialManagement {
     if (auth) {
       final msg = [subCommand];
       if (params != null) {
-        msg.addAll(cbor.encode(params));
+        msg.addAll(cbor.encode(CborValue(params)));
       }
       pinUvAuthParam = await _pinProtocol.authenticate(_pinToken, msg);
     }
