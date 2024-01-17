@@ -53,9 +53,10 @@ void main() async {
     CtapDevice device = CtapCcid(card);
     final ctap = await Ctap2.create(device);
     print(ctap.info.versions);
-    final cp = await ClientPin.create(ctap);
+    final cp = ClientPin(ctap, pinProtocol: PinProtocolV2());
     print(await cp.getPinRetries());
     print(await cp.changePin('123456', '1234'));
+    print(await cp.changePin('123456', '123456'));
 
     await card.disconnect(Disposition.resetCard);
   } finally {
