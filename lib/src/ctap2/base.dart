@@ -20,14 +20,14 @@ enum Ctap2Commands {
   final int value;
 }
 
-class PublickeyCredentialRpEntity {
+class PublicKeyCredentialRpEntity {
   final String id;
 
-  PublickeyCredentialRpEntity({required this.id});
+  PublicKeyCredentialRpEntity({required this.id});
 
   @override
   String toString() {
-    return 'PublickeyCredentialRpEntity(id: $id)';
+    return 'PublicKeyCredentialRpEntity(id: $id)';
   }
 }
 
@@ -52,7 +52,7 @@ class PublicKeyCredentialUserEntity {
 
   @override
   String toString() {
-    return 'PublickeyCredentialUserEntity(id: ${hex.encode(id)}, name: $name, displayName: $displayName)';
+    return 'PublicKeyCredentialUserEntity(id: ${hex.encode(id)}, name: $name, displayName: $displayName)';
   }
 }
 
@@ -166,7 +166,7 @@ class ClientPinResponse {
 
 class CredentialManagementRequest {
   final int subCommand;
-  final Map<int, dynamic>? params;
+  final CborMap? params;
   final int? pinUvAuthProtocol;
   final List<int>? pinUvAuthParam;
 
@@ -181,7 +181,7 @@ class CredentialManagementRequest {
 class CredentialManagementResponse {
   final int? existingResidentCredentialsCount;
   final int? maxPossibleRemainingResidentCredentialsCount;
-  final PublickeyCredentialRpEntity? rp;
+  final PublicKeyCredentialRpEntity? rp;
   final List<int>? rpIdHash;
   final int? totalRPs;
   final PublicKeyCredentialUserEntity? user;
@@ -246,6 +246,12 @@ class Ctap2 {
         res.data.isEmpty ? null : parseCredentialManagementResponse(res.data));
   }
 
+  Future<CtapResponse> reset() async {
+    final req = [Ctap2Commands.reset.value];
+    final res = await device.transceive(req);
+    return CtapResponse(res.status, null);
+  }
+
   /// Make the request to get info from the authenticator.
   static List<int> makeGetInfoRequest() {
     return [Ctap2Commands.getInfo.value];
@@ -281,28 +287,28 @@ class Ctap2 {
 
   /// Make the request to clientPin.
   static List<int> makeClientPinRequest(ClientPinRequest request) {
-    final map = <int, dynamic>{};
+    final map = <CborSmallInt, dynamic>{};
     if (request.pinUvAuthProtocol != null) {
-      map[1] = request.pinUvAuthProtocol;
+      map[CborSmallInt(1)] = CborSmallInt(request.pinUvAuthProtocol!);
     }
-    map[2] = request.subCommand;
+    map[CborSmallInt(2)] = CborSmallInt(request.subCommand);
     if (request.keyAgreement != null) {
-      map[3] = request.keyAgreement!.toCbor();
+      map[CborSmallInt(3)] = request.keyAgreement!.toCbor();
     }
     if (request.pinUvAuthParam != null) {
-      map[4] = CborBytes(request.pinUvAuthParam!);
+      map[CborSmallInt(4)] = CborBytes(request.pinUvAuthParam!);
     }
     if (request.newPinEnc != null) {
-      map[5] = CborBytes(request.newPinEnc!);
+      map[CborSmallInt(5)] = CborBytes(request.newPinEnc!);
     }
     if (request.pinHashEnc != null) {
-      map[6] = CborBytes(request.pinHashEnc!);
+      map[CborSmallInt(6)] = CborBytes(request.pinHashEnc!);
     }
     if (request.permissions != null) {
-      map[9] = request.permissions;
+      map[CborSmallInt(9)] = CborSmallInt(request.permissions!);
     }
     if (request.rpId != null) {
-      map[10] = request.rpId;
+      map[CborSmallInt(10)] = CborString(request.rpId!);
     }
     return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
   }
@@ -324,16 +330,16 @@ class Ctap2 {
   /// Make the request to credentialManagement.
   static List<int> makeCredentialManagementRequest(
       CredentialManagementRequest request) {
-    final map = <int, dynamic>{};
-    map[1] = request.subCommand;
+    final map = <CborSmallInt, dynamic>{};
+    map[CborSmallInt(1)] = CborSmallInt(request.subCommand);
     if (request.params != null) {
-      map[2] = request.params;
+      map[CborSmallInt(2)] = request.params;
     }
     if (request.pinUvAuthProtocol != null) {
-      map[3] = request.pinUvAuthProtocol;
+      map[CborSmallInt(3)] = CborSmallInt(request.pinUvAuthProtocol!);
     }
     if (request.pinUvAuthParam != null) {
-      map[4] = CborBytes(request.pinUvAuthParam!);
+      map[CborSmallInt(4)] = CborBytes(request.pinUvAuthParam!);
     }
     return [Ctap2Commands.credentialManagement.value] +
         cbor.encode(CborValue(map));
@@ -351,7 +357,7 @@ class Ctap2 {
       existingResidentCredentialsCount: map[1] as int?,
       maxPossibleRemainingResidentCredentialsCount: map[2] as int?,
       rp: rpMap != null
-          ? PublickeyCredentialRpEntity(id: rpMap['id'] as String)
+          ? PublicKeyCredentialRpEntity(id: rpMap['id'] as String)
           : null,
       rpIdHash: (map[4] as List?)?.cast<int>(),
       totalRPs: map[5] as int?,

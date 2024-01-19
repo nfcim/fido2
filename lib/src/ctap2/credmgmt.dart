@@ -39,7 +39,7 @@ class CmMetadata {
 }
 
 class CmRp {
-  final PublickeyCredentialRpEntity rp;
+  final PublicKeyCredentialRpEntity rp;
   final List<int> rpIdHash;
 
   CmRp({
@@ -200,17 +200,24 @@ class CredentialManagement {
 
   Future<CtapResponse<CredentialManagementResponse?>> _invoke(int subCommand,
       {Map<int, dynamic>? params, bool auth = true}) async {
+    CborMap? paramsMap;
+    var entries = params?.entries
+        .map((e) => MapEntry(CborSmallInt(e.key), CborValue(e.value)));
+    if (entries != null) {
+      paramsMap = CborMap.fromEntries(entries);
+    }
+
     List<int>? pinUvAuthParam;
     if (auth) {
       final msg = [subCommand];
-      if (params != null) {
-        msg.addAll(cbor.encode(CborValue(params)));
+      if (paramsMap != null) {
+        msg.addAll(cbor.encode(paramsMap));
       }
       pinUvAuthParam = await _pinProtocol.authenticate(_pinToken, msg);
     }
     return await _ctap.credentialManagement(CredentialManagementRequest(
       subCommand: subCommand,
-      params: params,
+      params: paramsMap,
       pinUvAuthProtocol: _pinProtocol.version,
       pinUvAuthParam: pinUvAuthParam,
     ));

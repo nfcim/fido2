@@ -281,6 +281,7 @@ class ClientPin {
     final resp = await _ctap.clientPin(ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
         subCommand: ClientPinSubCommand.setPin.value,
+        keyAgreement: ss.coseKey,
         newPinEnc: pinEnc,
         pinUvAuthParam: pinUvAuthParam));
     return resp.status == 0;
