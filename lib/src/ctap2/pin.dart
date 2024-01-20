@@ -250,6 +250,10 @@ class ClientPin {
         permissions: permissions?.fold(0, (p, e) => p! | e.value),
         rpId: permissionsRpId));
 
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
+
     return await _pinProtocol.decrypt(
         ss.sharedSecret, resp.data!.pinUvAuthToken!);
   }
@@ -269,7 +273,7 @@ class ClientPin {
   /// Set the [pin] of the authenticator.
   ///
   ///  This only works when no PIN is set. To change the PIN when set, use changePin.
-  Future<bool> setPin(String pin) async {
+  setPin(String pin) async {
     if (!ClientPin.isSupported(_ctap.info)) {
       throw Exception('setPin is not supported.');
     }
@@ -284,12 +288,15 @@ class ClientPin {
         keyAgreement: ss.coseKey,
         newPinEnc: pinEnc,
         pinUvAuthParam: pinUvAuthParam));
-    return resp.status == 0;
+
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
   }
 
   /// Change the PIN of the authenticator.
   /// This only works when a PIN is already set. If no PIN is set, use setPin.
-  Future<bool> changePin(String oldPin, String newPin) async {
+  changePin(String oldPin, String newPin) async {
     if (!ClientPin.isSupported(_ctap.info)) {
       throw Exception('changePin is not supported.');
     }
@@ -309,7 +316,10 @@ class ClientPin {
         pinHashEnc: pinHashEnc,
         newPinEnc: newPinEnc,
         pinUvAuthParam: pinUvAuthParam));
-    return resp.status == 0;
+
+    if (resp.status != 0) {
+      throw CtapException(resp.status);
+    }
   }
 
   /// Pad the PIN to 64 bytes.
