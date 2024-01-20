@@ -7,7 +7,7 @@ environment:
   sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
-  cbor: ^6.1.1
+  cbor: ^6.2.0
   convert: ^3.0.1
   cryptography: ^2.7.0
   elliptic: ^0.3.10

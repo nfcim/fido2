@@ -66,11 +66,11 @@ class ES256 extends CoseKey {
   @override
   CborValue toCbor() {
     return CborValue({
-      CborSmallInt(1): CborSmallInt(2),
-      CborSmallInt(3): CborSmallInt(ES256.algorithm),
-      CborSmallInt(-1): CborSmallInt(1),
-      CborSmallInt(-2): CborBytes(this[-2]),
-      CborSmallInt(-3): CborBytes(this[-3]),
+      1: 2,
+      3: ES256.algorithm,
+      -1: 1,
+      -2: CborBytes(this[-2]),
+      -3: CborBytes(this[-3]),
     });
   }
 }
@@ -95,11 +95,11 @@ class EcdhEsHkdf256 extends CoseKey {
   @override
   CborValue toCbor() {
     return CborValue({
-      CborSmallInt(1): CborSmallInt(2),
-      CborSmallInt(3): CborSmallInt(EcdhEsHkdf256.algorithm),
-      CborSmallInt(-1): CborSmallInt(1),
-      CborSmallInt(-2): CborBytes(this[-2]),
-      CborSmallInt(-3): CborBytes(this[-3]),
+      1: 2,
+      3: EcdhEsHkdf256.algorithm,
+      -1: 1,
+      -2: CborBytes(this[-2]),
+      -3: CborBytes(this[-3]),
     });
   }
 }

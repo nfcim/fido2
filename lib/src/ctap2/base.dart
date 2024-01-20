@@ -287,28 +287,28 @@ class Ctap2 {
 
   /// Make the request to clientPin.
   static List<int> makeClientPinRequest(ClientPinRequest request) {
-    final map = <CborSmallInt, dynamic>{};
+    final map = <int, dynamic>{};
     if (request.pinUvAuthProtocol != null) {
-      map[CborSmallInt(1)] = CborSmallInt(request.pinUvAuthProtocol!);
+      map[1] = request.pinUvAuthProtocol!;
     }
-    map[CborSmallInt(2)] = CborSmallInt(request.subCommand);
+    map[2] = request.subCommand;
     if (request.keyAgreement != null) {
-      map[CborSmallInt(3)] = request.keyAgreement!.toCbor();
+      map[3] = request.keyAgreement!.toCbor();
     }
     if (request.pinUvAuthParam != null) {
-      map[CborSmallInt(4)] = CborBytes(request.pinUvAuthParam!);
+      map[4] = CborBytes(request.pinUvAuthParam!);
     }
     if (request.newPinEnc != null) {
-      map[CborSmallInt(5)] = CborBytes(request.newPinEnc!);
+      map[5] = CborBytes(request.newPinEnc!);
     }
     if (request.pinHashEnc != null) {
-      map[CborSmallInt(6)] = CborBytes(request.pinHashEnc!);
+      map[6] = CborBytes(request.pinHashEnc!);
     }
     if (request.permissions != null) {
-      map[CborSmallInt(9)] = CborSmallInt(request.permissions!);
+      map[9] = request.permissions!;
     }
     if (request.rpId != null) {
-      map[CborSmallInt(10)] = CborString(request.rpId!);
+      map[10] = CborString(request.rpId!);
     }
     return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
   }
@@ -330,16 +330,16 @@ class Ctap2 {
   /// Make the request to credentialManagement.
   static List<int> makeCredentialManagementRequest(
       CredentialManagementRequest request) {
-    final map = <CborSmallInt, dynamic>{};
-    map[CborSmallInt(1)] = CborSmallInt(request.subCommand);
+    final map = <int, dynamic>{};
+    map[1] = request.subCommand;
     if (request.params != null) {
-      map[CborSmallInt(2)] = request.params;
+      map[2] = request.params;
     }
     if (request.pinUvAuthProtocol != null) {
-      map[CborSmallInt(3)] = CborSmallInt(request.pinUvAuthProtocol!);
+      map[3] = request.pinUvAuthProtocol!;
     }
     if (request.pinUvAuthParam != null) {
-      map[CborSmallInt(4)] = CborBytes(request.pinUvAuthParam!);
+      map[4] = CborBytes(request.pinUvAuthParam!);
     }
     return [Ctap2Commands.credentialManagement.value] +
         cbor.encode(CborValue(map));
