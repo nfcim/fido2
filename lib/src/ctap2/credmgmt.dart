@@ -87,7 +87,7 @@ class CredentialManagement {
     final resp =
         await _invoke(CredentialManagementSubCommand.getCredsMetadata.value);
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
     return CmMetadata(
       existingResidentCredentialsCount:
@@ -101,7 +101,7 @@ class CredentialManagement {
     final resp =
         await _invoke(CredentialManagementSubCommand.enumerateRpsBegin.value);
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
     return CmRp(
       rp: resp.data!.rp!,
@@ -114,7 +114,7 @@ class CredentialManagement {
         CredentialManagementSubCommand.enumerateRpsGetNextRp.value,
         auth: false);
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
     return CmRp(
       rp: resp.data!.rp!,
@@ -130,7 +130,7 @@ class CredentialManagement {
               CborBytes(rpIdHash)
         });
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
     return CmCredential(
       user: resp.data!.user!,
@@ -148,7 +148,7 @@ class CredentialManagement {
             .enumerateCredentialsGetNextCredential.value,
         auth: false);
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
     return CmCredential(
       user: resp.data!.user!,
@@ -180,7 +180,7 @@ class CredentialManagement {
               credentialId.toCbor()
         });
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
   }
 
@@ -194,7 +194,7 @@ class CredentialManagement {
           CredentialManagementSubCommandParams.user.value: user.toCbor()
         });
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
   }
 

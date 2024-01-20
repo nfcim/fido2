@@ -251,7 +251,7 @@ class ClientPin {
         rpId: permissionsRpId));
 
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
 
     return await _pinProtocol.decrypt(
@@ -290,7 +290,7 @@ class ClientPin {
         pinUvAuthParam: pinUvAuthParam));
 
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
   }
 
@@ -318,7 +318,7 @@ class ClientPin {
         pinUvAuthParam: pinUvAuthParam));
 
     if (resp.status != 0) {
-      throw CtapException(resp.status);
+      throw CtapError.fromCode(resp.status);
     }
   }
 
