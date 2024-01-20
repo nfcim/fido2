@@ -1,6 +1,6 @@
 name: fido2
 description: Library to parse FIDO2 request / response and interactive with authenticators via CTAP2.
-version: 0.0.3
+version: 0.0.4
 repository: https://github.com/nfcim/fido2
 
 environment:
