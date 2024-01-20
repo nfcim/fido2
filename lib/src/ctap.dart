@@ -97,10 +97,19 @@ enum CtapStatusCode implements Comparable<CtapStatusCode> {
   ctap2ErrVendor0E(0xFE),
   ctap2ErrVendor0F(0xFF),
   // enums below won't be used by [fromCode], but can be referenced by users
+  /// The last value used by CTAP spec, *DO NOT USE* unless comparing
   ctap2ErrSpecLast(0xDF),
-  ctap2ErrExtensionLast(0xEF),
-  ctap2ErrVendorFirst(0xF0),
+
+  /// The first value used by extension-specific impls, *DO NOT USE* unless comparing
   ctap2ErrExtensionFirst(0xE0),
+
+  /// The last value used by extension-specific impls, *DO NOT USE* unless comparing
+  ctap2ErrExtensionLast(0xEF),
+
+  /// The first value used by vendor-specific impls, *DO NOT USE* unless comparing
+  ctap2ErrVendorFirst(0xF0),
+
+  /// The last value used by vendor-specific impls, *DO NOT USE* unless comparing
   ctap2ErrVendorLast(0xFF);
 
   final int value;

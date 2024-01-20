@@ -1,3 +1,4 @@
+/// Library to parse FIDO2 request / response and interactive with FIDO2 authenticators.
 library fido2;
 
 export 'src/ctap.dart';
