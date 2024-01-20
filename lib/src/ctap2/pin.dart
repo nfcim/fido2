@@ -15,7 +15,7 @@ class EncapsulateResult {
   EncapsulateResult(this.coseKey, this.sharedSecret);
 }
 
-abstract class PinProtocol {
+sealed class PinProtocol {
   int get version;
 
   Future<EncapsulateResult> encapsulate(CoseKey peerCoseKey);

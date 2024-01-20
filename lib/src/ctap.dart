@@ -1,4 +1,6 @@
+/// Represents response from Client to Authenticator Protocol (CTAP) devices
 class CtapResponse<T> {
+  /// status code, see [CtapException]
   final int status;
   final T data;
 
