@@ -1,38 +1,38 @@
 name: Test
 
 on:
-    push:
-    pull_request:
+  push:
+  pull_request:
 
 jobs:
-    test:
-        runs-on: ubuntu-latest
-        if: "!contains(github.event.head_commit.message, 'ci skip')"
-        strategy:
-          matrix:
-            sdk: [stable, beta]
+  test:
+    runs-on: ubuntu-latest
+    if: '!contains(github.event.head_commit.message, "ci skip")'
+    strategy:
+      matrix:
+        sdk: [stable, beta]
 
-        steps:
-          - uses: actions/checkout@v4
-          - uses: dart-lang/setup-dart@v1
-            with:
-              sdk: ${{ matrix.sdk }}
-          - run: dart pub get
-          - run: dart format --output=none --set-exit-if-changed .
-          - run: dart analyze
-          - run: dart test
-          - run: dart doc
-          - name: Upload generated dartdoc
-            uses: actions/upload-artifact@v4
-            with:
-              name: docs-${{ matrix.sdk }}
-              path: doc/
-          - name: Evaluate score with pana
-            run: |
-              dart pub global activate pana
-              dart pub global run pana .
-        #   - name: Run example code
-        #     run: |
-        #       cd example
-        #       dart pub get
-        #       dart run lib/main.dart
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ matrix.sdk }}
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze
+      - run: dart test
+      - run: dart doc
+      - name: Upload generated dartdoc
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-${{ matrix.sdk }}
+          path: doc/
+      - name: Evaluate score with pana
+        run: |
+          dart pub global activate pana
+          dart pub global run pana .
+    #   - name: Run example code
+    #     run: |
+    #       cd example
+    #       dart pub get
+    #       dart run lib/main.dart
