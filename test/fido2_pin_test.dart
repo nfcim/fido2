@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 import 'fido2_ctap.dart';
 
 void main() {
-  group('Protocol 1', () {
+  group('PinProtocol V1', () {
     test('encapsulate', () async {
       final ec = getP256();
       final priv = ec.generatePrivateKey();
@@ -68,7 +68,7 @@ void main() {
     });
   });
 
-  group('Protocol 2', () {});
+  group('PinProtocol V2', () {});
 
   group('ClientPin', () {
     test('Constructor', () async {

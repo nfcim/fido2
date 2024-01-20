@@ -13,7 +13,7 @@ jobs:
             sdk: [stable, beta]
 
         steps:
-          - uses: actions/checkout@v3
+          - uses: actions/checkout@v4
           - uses: dart-lang/setup-dart@v1
             with:
               sdk: ${{ matrix.sdk }}
@@ -27,7 +27,7 @@ jobs:
             with:
               name: docs-${{ matrix.sdk }}
               path: doc/
-          - name: Evaluate score by pana
+          - name: Evaluate score with pana
             run: |
               dart pub global activate pana
               dart pub global run pana .
