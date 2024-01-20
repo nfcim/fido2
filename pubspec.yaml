@@ -1,5 +1,5 @@
 name: fido2
-description: FIDO2 (CTAP2) library for dart
+description: Library to parse FIDO2 request / response and interactive with authenticators via CTAP2.
 version: 0.0.3
 repository: https://github.com/nfcim/fido2
 

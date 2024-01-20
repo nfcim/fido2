@@ -25,8 +25,12 @@ jobs:
           - name: Upload generated dartdoc
             uses: actions/upload-artifact@v4
             with:
-              name: docs
+              name: docs-${{ matrix.sdk }}
               path: doc/
+          - name: Evaluate score by pana
+            run: |
+              dart pub global activate pana
+              dart pub global run pana .
         #   - name: Run example code
         #     run: |
         #       cd example
