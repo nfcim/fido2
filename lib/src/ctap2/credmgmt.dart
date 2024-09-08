@@ -41,10 +41,12 @@ class CmMetadata {
 class CmRp {
   final PublicKeyCredentialRpEntity rp;
   final List<int> rpIdHash;
+  final int? totalRPs;
 
   CmRp({
     required this.rp,
     required this.rpIdHash,
+    this.totalRPs,
   });
 }
 
@@ -106,6 +108,7 @@ class CredentialManagement {
     return CmRp(
       rp: resp.data!.rp!,
       rpIdHash: resp.data!.rpIdHash!,
+      totalRPs: resp.data!.totalRPs!,
     );
   }
 
@@ -120,6 +123,18 @@ class CredentialManagement {
       rp: resp.data!.rp!,
       rpIdHash: resp.data!.rpIdHash!,
     );
+  }
+
+  Future<List<CmRp>> enumerateRPs() async {
+    final rps = <CmRp>[];
+    var rp = await enumerateRpsBegin();
+    int totalRPs = rp.totalRPs!;
+    rps.add(rp);
+    while (totalRPs > rps.length) {
+      rp = await enumerateRpsGetNextRp();
+      rps.add(rp);
+    }
+    return rps;
   }
 
   Future<CmCredential> enumerateCredentialsBegin(List<int> rpIdHash) async {

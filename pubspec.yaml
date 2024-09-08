@@ -1,19 +1,19 @@
 name: fido2
 description: Library to parse FIDO2 request / response and interactive with authenticators via CTAP2.
-version: 0.0.4
+version: 0.0.5
 repository: https://github.com/nfcim/fido2
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
-  cbor: ^6.2.0
+  cbor: ^6.3.3
   convert: ^3.0.1
   cryptography: ^2.7.0
-  elliptic: ^0.3.10
-  quiver: ^3.2.1
+  elliptic: ^0.3.11
+  quiver: ^3.2.2
 
 dev_dependencies:
-  lints: ^3.0.0
-  test: ^1.24.0
-  dart_pcsc: ^2.0.1
+  lints: ^4.0.0
+  test: ^1.25.8
+  dart_pcsc: ^2.0.2
