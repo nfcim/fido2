@@ -28,6 +28,39 @@ void main() {
     });
   });
 
+  group('MakeCredential', () {
+    test('Request', () {
+      var request = MakeCredentialRequest(
+        clientDataHash: List.filled(32, 0x01),
+        rp: PublicKeyCredentialRpEntity(id: 'test.com'),
+        user: PublicKeyCredentialUserEntity(
+          id: [0x01],
+          name: 'test',
+          displayName: 'Test User',
+        ),
+        pubKeyCredParams: [
+          {'alg': -7, 'type': 'public-key'}
+        ],
+      );
+
+      var encoded = Ctap2.makeMakeCredentialRequest(request);
+
+      expect(encoded.length, greaterThan(0));
+      expect(encoded[0], equals(0x01));
+    });
+
+    test('Response', () {
+      var responseBytes = hex.decode(
+          'A301667061636B65640258250000000000000000000000000000000000000000000000000000000000000000000000000003A0');
+
+      var response = Ctap2.parseMakeCredentialResponse(responseBytes);
+
+      expect(response.fmt, equals('packed'));
+      expect(response.authData.length, equals(37));
+      expect(response.attStmt, isA<Map>());
+    });
+  });
+
   group('ClientPin', () {
     test('Request1', () {
       var request = Ctap2.makeClientPinRequest(ClientPinRequest(

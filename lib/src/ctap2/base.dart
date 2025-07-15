@@ -25,6 +25,12 @@ class PublicKeyCredentialRpEntity {
 
   PublicKeyCredentialRpEntity({required this.id});
 
+  CborValue toCbor() {
+    return CborValue({
+      'id': id,
+    });
+  }
+
   @override
   String toString() {
     return 'PublicKeyCredentialRpEntity(id: $id)';
@@ -380,4 +386,58 @@ class Ctap2 {
       largeBlobKey: (map[11] as List?)?.cast<int>(),
     );
   }
+
+  static List<int> makeMakeCredentialRequest(MakeCredentialRequest request) {
+    final map = <int, dynamic>{};
+    map[1] = CborBytes(request.clientDataHash);
+    map[2] = request.rp;
+    map[3] = request.user;
+    map[4] = request.pubKeyCredParams;
+    return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
+  }
+
+  static MakeCredentialResponse parseMakeCredentialResponse(List<int> data) {
+    final map = cbor.decode(data).toObject() as Map;
+    return MakeCredentialResponse(
+      fmt: map[1] as String,
+      authData: (map[2] as List?)?.cast<int>() ?? [],
+      attStmt: (map[3] as Map?)?.cast<String, dynamic>() ?? {},
+    );
+  }
+}
+
+class MakeCredentialRequest {
+  final List<int> clientDataHash;
+  final PublicKeyCredentialRpEntity rp;
+  final PublicKeyCredentialUserEntity user;
+  final List<Map<String, dynamic>> pubKeyCredParams;
+  final List<PublicKeyCredentialDescriptor>? excludeList;
+  final Map<String, dynamic>? extensions;
+  final Map<String, bool>? options;
+  final List<int>? pinAuth;
+  final int? pinProtocol;
+
+  MakeCredentialRequest({
+    required this.clientDataHash,
+    required this.rp,
+    required this.user,
+    required this.pubKeyCredParams,
+    this.excludeList,
+    this.extensions,
+    this.options,
+    this.pinAuth,
+    this.pinProtocol,
+  });
+}
+
+class MakeCredentialResponse {
+  final String fmt;
+  final List<int> authData;
+  final Map<String, dynamic> attStmt;
+
+  MakeCredentialResponse({
+    required this.fmt,
+    required this.authData,
+    required this.attStmt,
+  });
 }
