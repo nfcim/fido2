@@ -390,9 +390,27 @@ class Ctap2 {
   static List<int> makeMakeCredentialRequest(MakeCredentialRequest request) {
     final map = <int, dynamic>{};
     map[1] = CborBytes(request.clientDataHash);
-    map[2] = request.rp;
-    map[3] = request.user;
-    map[4] = request.pubKeyCredParams;
+    map[2] = request.rp.toCbor();
+    map[3] = request.user.toCbor();
+    map[4] = request.pubKeyCredParams.map((p) => CborValue(p)).toList();
+    if (request.excludeList != null && request.excludeList!.isNotEmpty) {
+      map[5] = request.excludeList!.map((e) => e.toCbor()).toList();
+    }
+    if (request.extensions != null) {
+      map[6] = CborValue(request.extensions!);
+    }
+    if (request.options != null) {
+      map[7] = CborValue(request.options!);
+    }
+    if (request.pinAuth != null) {
+      map[8] = CborBytes(request.pinAuth!);
+    }
+    if (request.pinProtocol != null) {
+      map[9] = request.pinProtocol!;
+    }
+    if (request.enterpriseAttestation != null) {
+      map[10] = request.enterpriseAttestation!;
+    }
     return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
   }
 
@@ -409,6 +427,23 @@ class Ctap2 {
     final map = <int, dynamic>{};
     map[1] = CborString(request.rpId);
     map[2] = CborBytes(request.clientDataHash);
+
+    if (request.allowList != null && request.allowList!.isNotEmpty) {
+      map[3] = request.allowList!.map((a) => a.toCbor()).toList();
+    }
+    if (request.extensions != null) {
+      map[4] = CborValue(request.extensions!);
+    }
+    if (request.options != null) {
+      map[5] = CborValue(request.options!);
+    }
+    if (request.pinAuth != null) {
+      map[6] = CborBytes(request.pinAuth!);
+    }
+    if (request.pinProtocol != null) {
+      map[7] = request.pinProtocol!;
+    }
+
     return [Ctap2Commands.getAssertion.value] + cbor.encode(CborValue(map));
   }
 
@@ -429,7 +464,9 @@ class Ctap2 {
               displayName: map[4]['displayName'] as String,
             )
           : null,
-      numberOfCredentials: map[6] as int?,
+      numberOfCredentials: map[5] as int?,
+      userSelected: map[6] as bool?,
+      largeBlobKey: (map[7] as List?)?.cast<int>(),
     );
   }
 }
@@ -444,7 +481,7 @@ class MakeCredentialRequest {
   final Map<String, bool>? options;
   final List<int>? pinAuth;
   final int? pinProtocol;
-
+  final bool? enterpriseAttestation;
   MakeCredentialRequest({
     required this.clientDataHash,
     required this.rp,
@@ -455,6 +492,7 @@ class MakeCredentialRequest {
     this.options,
     this.pinAuth,
     this.pinProtocol,
+    this.enterpriseAttestation,
   });
 }
 
@@ -496,12 +534,15 @@ class GetAssertionResponse {
   final List<int> signature;
   final PublicKeyCredentialUserEntity? user;
   final int? numberOfCredentials;
-
+  final bool? userSelected;
+  final List<int>? largeBlobKey;
   GetAssertionResponse({
     required this.credential,
     required this.authData,
     required this.signature,
     this.user,
     this.numberOfCredentials,
+    this.userSelected,
+    this.largeBlobKey,
   });
 }
