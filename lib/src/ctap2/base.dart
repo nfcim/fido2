@@ -420,6 +420,8 @@ class Ctap2 {
       fmt: map[1] as String,
       authData: (map[2] as List?)?.cast<int>() ?? [],
       attStmt: (map[3] as Map?)?.cast<String, dynamic>() ?? {},
+      epAtt: map[4] as bool?,
+      largeBlobKey: (map[5] as List?)?.cast<int>(),
     );
   }
 
@@ -500,11 +502,14 @@ class MakeCredentialResponse {
   final String fmt;
   final List<int> authData;
   final Map<String, dynamic> attStmt;
-
+  final bool? epAtt;
+  final List<int>? largeBlobKey;
   MakeCredentialResponse({
     required this.fmt,
     required this.authData,
     required this.attStmt,
+    this.epAtt,
+    this.largeBlobKey,
   });
 }
 

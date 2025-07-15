@@ -40,25 +40,109 @@ void main() {
           displayName: 'Test User',
         ),
         pubKeyCredParams: [
-          {'alg': -7, 'type': 'public-key'}
+          {'alg': -7, 'type': 'public-key'},
+          {'alg': -257, 'type': 'public-key'}, // RS256
         ],
+        excludeList: [
+          PublicKeyCredentialDescriptor(
+            id: [0x01, 0x02, 0x03, 0x04],
+            type: 'public-key',
+          )
+        ],
+        extensions: {
+          'hmac-secret': true,
+          'credProtect': 2,
+        },
+        options: {
+          'rk': true,
+          'uv': false,
+        },
       );
 
       var encoded = Ctap2.makeMakeCredentialRequest(request);
 
       expect(encoded.length, greaterThan(0));
       expect(encoded[0], equals(0x01));
+
+      var decoded = cbor.decode(encoded.sublist(1)).toObject() as Map;
+
+      expect(decoded, containsPair(0x01, hasLength(32)));
+      expect(decoded, containsPair(0x02, isA<Map>()));
+      expect(decoded, containsPair(0x03, isA<Map>()));
+      expect(decoded, containsPair(0x04, isA<List>()));
+
+      expect(decoded, containsPair(0x05, isA<List>()));
+      expect(decoded, containsPair(0x06, isA<Map>()));
+      expect(decoded, containsPair(0x07, isA<Map>()));
+
+      var rpEntity = decoded[0x02] as Map;
+      expect(rpEntity, containsPair('id', 'test.com'));
+
+      var userEntity = decoded[0x03] as Map;
+      expect(userEntity, containsPair('id', [0x01]));
+      expect(userEntity, containsPair('name', 'test'));
+      expect(userEntity, containsPair('displayName', 'Test User'));
+
+      var pubKeyCredParams = decoded[0x04] as List;
+      expect(pubKeyCredParams, hasLength(2));
+      expect(pubKeyCredParams[0], containsPair('alg', -7));
+      expect(pubKeyCredParams[1], containsPair('alg', -257));
+
+      var excludeList = decoded[0x05] as List;
+      expect(excludeList, hasLength(1));
+      var excludeItem = excludeList[0] as Map;
+      expect(excludeItem, containsPair('id', [0x01, 0x02, 0x03, 0x04]));
+      expect(excludeItem, containsPair('type', 'public-key'));
+
+      var extensions = decoded[0x06] as Map;
+      expect(extensions, containsPair('hmac-secret', true));
+      expect(extensions, containsPair('credProtect', 2));
+
+      var options = decoded[0x07] as Map;
+      expect(options, containsPair('rk', true));
+      expect(options, containsPair('uv', false));
     });
 
     test('Response', () {
       var responseBytes = hex.decode(
-          'A301667061636B65640258250000000000000000000000000000000000000000000000000000000000000000000000000003A0');
+          'a501667061636b656402589499ab715d84a3bc5e0e92aa50e67a5813637fd1744bd301ab08f87191ddb816e0410000007baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0010f1d0c41d1f054238b971e164e64941a8a50102032620012158200101010101010101010101010101010101010101010101010101010101010101225820020202020202020202020202020202020202020202020202020202020202020203a263616c67266373696758405a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a04f50558201212121212121212121212121212121212121212121212121212121212121212');
 
       var response = Ctap2.parseMakeCredentialResponse(responseBytes);
 
       expect(response.fmt, equals('packed'));
-      expect(response.authData.length, equals(37));
+
+      expect(response.authData, hasLength(greaterThan(37)));
+
+      var rpIdHash = response.authData.sublist(0, 32);
+      expect(rpIdHash, hasLength(32));
+
+      var flags = response.authData[32];
+      expect(flags & 0x01, equals(0x01));
+      expect(flags & 0x40, equals(0x40));
+
+      var signCount = (response.authData[33] << 24) |
+          (response.authData[34] << 16) |
+          (response.authData[35] << 8) |
+          response.authData[36];
+      expect(signCount, equals(123));
+
+      var aaguid = response.authData.sublist(37, 53);
+      expect(aaguid, equals(List.filled(16, 0xaa)));
+
+      var credIdLength = (response.authData[53] << 8) | response.authData[54];
+      expect(credIdLength, equals(16));
+
+      var credentialId = response.authData.sublist(55, 55 + credIdLength);
+      expect(
+          credentialId, equals(hex.decode('f1d0c41d1f054238b971e164e64941a8')));
+
       expect(response.attStmt, isA<Map>());
+      expect(response.attStmt, containsPair('alg', -7));
+      expect(response.attStmt, containsPair('sig', hasLength(64)));
+
+      expect(response.epAtt, equals(true));
+      expect(response.largeBlobKey, hasLength(32));
+      expect(response.largeBlobKey, equals(List.filled(32, 0x12)));
     });
   });
 
