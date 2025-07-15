@@ -1,4 +1,5 @@
 import 'package:convert/convert.dart';
+import 'package:cbor/cbor.dart';
 import 'package:fido2/fido2.dart';
 import 'package:test/test.dart';
 
@@ -58,6 +59,55 @@ void main() {
       expect(response.fmt, equals('packed'));
       expect(response.authData.length, equals(37));
       expect(response.attStmt, isA<Map>());
+    });
+  });
+
+  group('GetAssertion', () {
+    test('Request', () {
+      var request = GetAssertionRequest(
+        rpId: 'test.com',
+        clientDataHash: List.filled(32, 0x02),
+      );
+
+      var encoded = Ctap2.makeGetAssertionRequest(request);
+
+      expect(encoded.length, greaterThan(0));
+      expect(encoded[0], equals(0x02));
+
+      var decoded = cbor.decode(encoded.sublist(1)).toObject() as Map;
+
+      expect(decoded, containsPair(0x01, 'test.com'));
+      expect(decoded, containsPair(0x02, hasLength(32)));
+    });
+    test('Response', () {
+      var responseData = hex.decode(
+          'a401a264747970656a7075626c69632d6b6579626964500102030405060708090a0b0c0d0e0f100258258788898a8b8c8d8e8f908788898a8b8c8d8e8f908788898a8b8c8d8e8f908788898a8b8c8d035840303132333435363738393a3b3c3d3e3f40414243303132333435363738393a3b3c3d3e3f40414243303132333435363738393a3b3c3d3e3f404142433031323304a36269644401020304646e616d657074657374406578616d706c652e636f6d6b646973706c61794e616d6569546573742055736572');
+
+      var response = Ctap2.parseGetAssertionResponse(responseData);
+
+      expect(
+          response.credential.id,
+          equals([
+            0x01,
+            0x02,
+            0x03,
+            0x04,
+            0x05,
+            0x06,
+            0x07,
+            0x08,
+            0x09,
+            0x0a,
+            0x0b,
+            0x0c,
+            0x0d,
+            0x0e,
+            0x0f,
+            0x10
+          ]));
+      expect(response.credential.type, equals('public-key'));
+      expect(response.authData, hasLength(37));
+      expect(response.signature, hasLength(64));
     });
   });
 
