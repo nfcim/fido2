@@ -81,7 +81,7 @@ void main() {
     });
     test('Response', () {
       var responseData = hex.decode(
-          'a401a264747970656a7075626c69632d6b6579626964500102030405060708090a0b0c0d0e0f100258258788898a8b8c8d8e8f908788898a8b8c8d8e8f908788898a8b8c8d8e8f908788898a8b8c8d035840303132333435363738393a3b3c3d3e3f40414243303132333435363738393a3b3c3d3e3f40414243303132333435363738393a3b3c3d3e3f404142433031323304a36269644401020304646e616d657074657374406578616d706c652e636f6d6b646973706c61794e616d6569546573742055736572');
+          'a701a264747970656a7075626c69632d6b6579626964500102030405060708090a0b0c0d0e0f10025825d77a9ec1eac6a4e8ad1d23f53340e75efd2dbe7d00a9880a9fad6c54a334bf960951da7dbe035840e00a017858ee454f06a8ca085e2b463e20c189410e3252fbfc0a2e2fa4003472e3514dbc90418440b308504f453c3833b6a5962ecf1493ea9640aaf3ff3e0b3d04a362696444deadbeef646e616d657074657374406578616d706c652e636f6d6b646973706c61794e616d6569546573742055736572050506f50758208bee74a324a9c37f06749c2614f070e2ec96382791e66cdab1655912a74267a2');
 
       var response = Ctap2.parseGetAssertionResponse(responseData);
 
@@ -108,6 +108,15 @@ void main() {
       expect(response.credential.type, equals('public-key'));
       expect(response.authData, hasLength(37));
       expect(response.signature, hasLength(64));
+      expect(response.user?.name, equals('test@example.com'));
+      expect(response.user?.displayName, equals('Test User'));
+      expect(response.user?.id, equals([0xde, 0xad, 0xbe, 0xef]));
+      expect(response.numberOfCredentials, equals(5));
+      expect(response.userSelected, equals(true));
+      expect(
+          response.largeBlobKey,
+          equals(hex.decode(
+              '8bee74a324a9c37f06749c2614f070e2ec96382791e66cdab1655912a74267a2')));
     });
   });
 
