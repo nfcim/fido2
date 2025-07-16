@@ -212,6 +212,85 @@ class CredentialManagementResponse {
   });
 }
 
+class MakeCredentialRequest {
+  final List<int> clientDataHash;
+  final PublicKeyCredentialRpEntity rp;
+  final PublicKeyCredentialUserEntity user;
+  final List<Map<String, dynamic>> pubKeyCredParams;
+  final List<PublicKeyCredentialDescriptor>? excludeList;
+  final Map<String, dynamic>? extensions;
+  final Map<String, bool>? options;
+  final List<int>? pinAuth;
+  final int? pinProtocol;
+  final bool? enterpriseAttestation;
+  MakeCredentialRequest({
+    required this.clientDataHash,
+    required this.rp,
+    required this.user,
+    required this.pubKeyCredParams,
+    this.excludeList,
+    this.extensions,
+    this.options,
+    this.pinAuth,
+    this.pinProtocol,
+    this.enterpriseAttestation,
+  });
+}
+
+class MakeCredentialResponse {
+  final String fmt;
+  final List<int> authData;
+  final Map<String, dynamic> attStmt;
+  final bool? epAtt;
+  final List<int>? largeBlobKey;
+  MakeCredentialResponse({
+    required this.fmt,
+    required this.authData,
+    required this.attStmt,
+    this.epAtt,
+    this.largeBlobKey,
+  });
+}
+
+class GetAssertionRequest {
+  final String rpId;
+  final List<int> clientDataHash;
+  final List<PublicKeyCredentialDescriptor>? allowList;
+  final Map<String, dynamic>? extensions;
+  final Map<String, bool>? options;
+  final List<int>? pinAuth;
+  final int? pinProtocol;
+
+  GetAssertionRequest({
+    required this.rpId,
+    required this.clientDataHash,
+    this.allowList,
+    this.extensions,
+    this.options,
+    this.pinAuth,
+    this.pinProtocol,
+  });
+}
+
+class GetAssertionResponse {
+  final PublicKeyCredentialDescriptor credential;
+  final List<int> authData;
+  final List<int> signature;
+  final PublicKeyCredentialUserEntity? user;
+  final int? numberOfCredentials;
+  final bool? userSelected;
+  final List<int>? largeBlobKey;
+  GetAssertionResponse({
+    required this.credential,
+    required this.authData,
+    required this.signature,
+    this.user,
+    this.numberOfCredentials,
+    this.userSelected,
+    this.largeBlobKey,
+  });
+}
+
 class Ctap2 {
   late final AuthenticatorInfo _info;
   final CtapDevice device;
@@ -471,83 +550,4 @@ class Ctap2 {
       largeBlobKey: (map[7] as List?)?.cast<int>(),
     );
   }
-}
-
-class MakeCredentialRequest {
-  final List<int> clientDataHash;
-  final PublicKeyCredentialRpEntity rp;
-  final PublicKeyCredentialUserEntity user;
-  final List<Map<String, dynamic>> pubKeyCredParams;
-  final List<PublicKeyCredentialDescriptor>? excludeList;
-  final Map<String, dynamic>? extensions;
-  final Map<String, bool>? options;
-  final List<int>? pinAuth;
-  final int? pinProtocol;
-  final bool? enterpriseAttestation;
-  MakeCredentialRequest({
-    required this.clientDataHash,
-    required this.rp,
-    required this.user,
-    required this.pubKeyCredParams,
-    this.excludeList,
-    this.extensions,
-    this.options,
-    this.pinAuth,
-    this.pinProtocol,
-    this.enterpriseAttestation,
-  });
-}
-
-class MakeCredentialResponse {
-  final String fmt;
-  final List<int> authData;
-  final Map<String, dynamic> attStmt;
-  final bool? epAtt;
-  final List<int>? largeBlobKey;
-  MakeCredentialResponse({
-    required this.fmt,
-    required this.authData,
-    required this.attStmt,
-    this.epAtt,
-    this.largeBlobKey,
-  });
-}
-
-class GetAssertionRequest {
-  final String rpId;
-  final List<int> clientDataHash;
-  final List<PublicKeyCredentialDescriptor>? allowList;
-  final Map<String, dynamic>? extensions;
-  final Map<String, bool>? options;
-  final List<int>? pinAuth;
-  final int? pinProtocol;
-
-  GetAssertionRequest({
-    required this.rpId,
-    required this.clientDataHash,
-    this.allowList,
-    this.extensions,
-    this.options,
-    this.pinAuth,
-    this.pinProtocol,
-  });
-}
-
-class GetAssertionResponse {
-  final PublicKeyCredentialDescriptor credential;
-  final List<int> authData;
-  final List<int> signature;
-  final PublicKeyCredentialUserEntity? user;
-  final int? numberOfCredentials;
-  final bool? userSelected;
-  final List<int>? largeBlobKey;
-  GetAssertionResponse({
-    required this.credential,
-    required this.authData,
-    required this.signature,
-    this.user,
-    this.numberOfCredentials,
-    this.userSelected,
-    this.largeBlobKey,
-  });
 }
