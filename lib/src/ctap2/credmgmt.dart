@@ -3,6 +3,9 @@ import 'package:fido2/src/cose.dart';
 import 'package:fido2/src/ctap.dart';
 import 'package:fido2/src/ctap2/base.dart';
 import 'package:fido2/src/ctap2/pin.dart';
+import 'package:fido2/src/ctap2/entities/authenticator_info.dart';
+import 'package:fido2/src/ctap2/entities/credential_entities.dart';
+import 'package:fido2/src/ctap2/requests/credential_mgmt.dart';
 
 enum CredentialManagementSubCommand {
   getCredsMetadata(0x01),

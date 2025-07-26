@@ -1,6 +1,12 @@
 import 'package:convert/convert.dart';
 import 'package:cbor/cbor.dart';
 import 'package:fido2/fido2.dart';
+import 'package:fido2/src/ctap2/entities/authenticator_info.dart';
+import 'package:fido2/src/ctap2/entities/credential_entities.dart';
+import 'package:fido2/src/ctap2/requests/get_info.dart';
+import 'package:fido2/src/ctap2/requests/make_credential.dart';
+import 'package:fido2/src/ctap2/requests/get_assertion.dart';
+import 'package:fido2/src/ctap2/requests/client_pin.dart';
 import 'package:test/test.dart';
 
 import 'fido2_ctap.dart';
@@ -8,14 +14,14 @@ import 'fido2_ctap.dart';
 void main() {
   group('AuthenticatorInfo', () {
     test('Request', () {
-      var makeGetInfoRequest = Ctap2.makeGetInfoRequest();
+      var makeGetInfoRequest = GetInfoUtils.makeGetInfoRequest();
       expect(makeGetInfoRequest, equals([4]));
     });
 
     test('Response', () {
       var response = hex.decode(
           'AD0183665532465F5632684649444F5F325F30684649444F5F325F3102846863726564426C6F626B6372656450726F746563746B686D61632D7365637265746C6C61726765426C6F624B65790350244EB29EE0904E4981FE1F20F8D3B8F404A662726BF568637265644D676D74F569636C69656E7450696EF46A6C61726765426C6F6273F56E70696E557641757468546F6B656EF5706D616B654372656455764E6F74527164F5051905140682010207080818460982636E6663637573620A83A263616C672664747970656A7075626C69632D6B6579A263616C672764747970656A7075626C69632D6B6579A263616C67382F64747970656A7075626C69632D6B65790B1910000E18C90F1820');
-      var info = Ctap2.parseGetInfoResponse(response);
+      var info = GetInfoUtils.parseGetInfoResponse(response);
       expect(info.versions, equals(['U2F_V2', 'FIDO_2_0', 'FIDO_2_1']));
       expect(info.options, contains('rk'));
     });
@@ -59,7 +65,7 @@ void main() {
         },
       );
 
-      var encoded = Ctap2.makeMakeCredentialRequest(request);
+      var encoded = MakeCredentialUtils.makeMakeCredentialRequest(request);
 
       expect(encoded.length, greaterThan(0));
       expect(encoded[0], equals(0x01));
@@ -107,7 +113,7 @@ void main() {
       var responseBytes = hex.decode(
           'a501667061636b656402589499ab715d84a3bc5e0e92aa50e67a5813637fd1744bd301ab08f87191ddb816e0410000007baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0010f1d0c41d1f054238b971e164e64941a8a50102032620012158200101010101010101010101010101010101010101010101010101010101010101225820020202020202020202020202020202020202020202020202020202020202020203a263616c67266373696758405a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a04f50558201212121212121212121212121212121212121212121212121212121212121212');
 
-      var response = Ctap2.parseMakeCredentialResponse(responseBytes);
+      var response = MakeCredentialUtils.parseMakeCredentialResponse(responseBytes);
 
       expect(response.fmt, equals('packed'));
 
@@ -153,7 +159,7 @@ void main() {
         clientDataHash: List.filled(32, 0x02),
       );
 
-      var encoded = Ctap2.makeGetAssertionRequest(request);
+      var encoded = GetAssertionUtils.makeGetAssertionRequest(request);
 
       expect(encoded.length, greaterThan(0));
       expect(encoded[0], equals(0x02));
@@ -167,7 +173,7 @@ void main() {
       var responseData = hex.decode(
           'a701a264747970656a7075626c69632d6b6579626964500102030405060708090a0b0c0d0e0f10025825d77a9ec1eac6a4e8ad1d23f53340e75efd2dbe7d00a9880a9fad6c54a334bf960951da7dbe035840e00a017858ee454f06a8ca085e2b463e20c189410e3252fbfc0a2e2fa4003472e3514dbc90418440b308504f453c3833b6a5962ecf1493ea9640aaf3ff3e0b3d04a362696444deadbeef646e616d657074657374406578616d706c652e636f6d6b646973706c61794e616d6569546573742055736572050506f50758208bee74a324a9c37f06749c2614f070e2ec96382791e66cdab1655912a74267a2');
 
-      var response = Ctap2.parseGetAssertionResponse(responseData);
+      var response = GetAssertionUtils.parseGetAssertionResponse(responseData);
 
       expect(
           response.credential.id,
@@ -206,14 +212,14 @@ void main() {
 
   group('ClientPin', () {
     test('Request1', () {
-      var request = Ctap2.makeClientPinRequest(ClientPinRequest(
+      var request = ClientPinUtils.makeClientPinRequest(ClientPinRequest(
           subCommand: ClientPinSubCommand.getKeyAgreement.value,
           pinUvAuthProtocol: 2));
       expect(request, equals(hex.decode('06A201020202')));
     });
 
     test('Request2', () {
-      var request = Ctap2.makeClientPinRequest(ClientPinRequest(
+      var request = ClientPinUtils.makeClientPinRequest(ClientPinRequest(
         subCommand: ClientPinSubCommand.setPin.value,
         pinUvAuthProtocol: 2,
         keyAgreement: EcdhEsHkdf256.fromPublicKey(
@@ -235,7 +241,7 @@ void main() {
     test('Response1', () {
       var response = hex.decode(
           'A101A50102033818200121582064E75C1E36EF6C3C17F609014D96D048BEB6793CD34823358E44A599B4DD2291225820235BD52FAEB2A3599F10D38EFB58E65BE58AE67AF118BF1BC528FA4B090EE763');
-      var clientPinResponse = Ctap2.parseClientPinResponse(response);
+      var clientPinResponse = ClientPinUtils.parseClientPinResponse(response);
       expect(clientPinResponse.keyAgreement![1], equals(2));
       expect(clientPinResponse.keyAgreement![3], equals(-25));
     });
