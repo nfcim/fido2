@@ -13,7 +13,7 @@ class MakeCredentialRequest {
   final List<int>? pinAuth;
   final int? pinProtocol;
   final bool? enterpriseAttestation;
-  
+
   MakeCredentialRequest({
     required this.clientDataHash,
     required this.rp,
@@ -26,6 +26,33 @@ class MakeCredentialRequest {
     this.pinProtocol,
     this.enterpriseAttestation,
   });
+
+  List<int> encode() {
+    final map = <int, dynamic>{};
+    map[1] = CborBytes(clientDataHash);
+    map[2] = rp.toCbor();
+    map[3] = user.toCbor();
+    map[4] = pubKeyCredParams.map((p) => CborValue(p)).toList();
+    if (excludeList != null && excludeList!.isNotEmpty) {
+      map[5] = excludeList!.map((e) => e.toCbor()).toList();
+    }
+    if (extensions != null) {
+      map[6] = CborValue(extensions!);
+    }
+    if (options != null) {
+      map[7] = CborValue(options!);
+    }
+    if (pinAuth != null) {
+      map[8] = CborBytes(pinAuth!);
+    }
+    if (pinProtocol != null) {
+      map[9] = pinProtocol!;
+    }
+    if (enterpriseAttestation != null) {
+      map[10] = enterpriseAttestation!;
+    }
+    return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
+  }
 }
 
 class MakeCredentialResponse {
@@ -34,7 +61,7 @@ class MakeCredentialResponse {
   final Map<String, dynamic> attStmt;
   final bool? epAtt;
   final List<int>? largeBlobKey;
-  
+
   MakeCredentialResponse({
     required this.fmt,
     required this.authData,
@@ -42,37 +69,8 @@ class MakeCredentialResponse {
     this.epAtt,
     this.largeBlobKey,
   });
-}
 
-class MakeCredentialUtils {
-  static List<int> makeMakeCredentialRequest(MakeCredentialRequest request) {
-    final map = <int, dynamic>{};
-    map[1] = CborBytes(request.clientDataHash);
-    map[2] = request.rp.toCbor();
-    map[3] = request.user.toCbor();
-    map[4] = request.pubKeyCredParams.map((p) => CborValue(p)).toList();
-    if (request.excludeList != null && request.excludeList!.isNotEmpty) {
-      map[5] = request.excludeList!.map((e) => e.toCbor()).toList();
-    }
-    if (request.extensions != null) {
-      map[6] = CborValue(request.extensions!);
-    }
-    if (request.options != null) {
-      map[7] = CborValue(request.options!);
-    }
-    if (request.pinAuth != null) {
-      map[8] = CborBytes(request.pinAuth!);
-    }
-    if (request.pinProtocol != null) {
-      map[9] = request.pinProtocol!;
-    }
-    if (request.enterpriseAttestation != null) {
-      map[10] = request.enterpriseAttestation!;
-    }
-    return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
-  }
-
-  static MakeCredentialResponse parseMakeCredentialResponse(List<int> data) {
+  static MakeCredentialResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     return MakeCredentialResponse(
       fmt: map[1] as String,
@@ -82,4 +80,4 @@ class MakeCredentialUtils {
       largeBlobKey: (map[5] as List?)?.cast<int>(),
     );
   }
-} 
+}

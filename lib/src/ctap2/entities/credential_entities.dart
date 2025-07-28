@@ -6,6 +6,12 @@ class PublicKeyCredentialRpEntity {
 
   PublicKeyCredentialRpEntity({required this.id});
 
+  factory PublicKeyCredentialRpEntity.fromCbor(Map<dynamic, dynamic> cbor) {
+    return PublicKeyCredentialRpEntity(
+      id: cbor['id'] as String,
+    );
+  }
+
   CborValue toCbor() {
     return CborValue({
       'id': id,
@@ -29,6 +35,14 @@ class PublicKeyCredentialUserEntity {
     required this.displayName,
   });
 
+  factory PublicKeyCredentialUserEntity.fromCbor(Map<dynamic, dynamic> cbor) {
+    return PublicKeyCredentialUserEntity(
+      id: (cbor['id'] as List).cast<int>(),
+      name: cbor['name'] as String,
+      displayName: cbor['displayName'] as String,
+    );
+  }
+
   CborValue toCbor() {
     return CborValue({
       'id': CborBytes(id),
@@ -46,17 +60,28 @@ class PublicKeyCredentialUserEntity {
 class PublicKeyCredentialDescriptor {
   final String type;
   final List<int> id;
+  final List<String>? transports;
 
-  PublicKeyCredentialDescriptor({
-    required this.type,
-    required this.id,
-  });
+  PublicKeyCredentialDescriptor(
+      {required this.type, required this.id, this.transports});
+
+  factory PublicKeyCredentialDescriptor.fromCbor(Map<dynamic, dynamic> cbor) {
+    return PublicKeyCredentialDescriptor(
+      type: cbor['type'] as String,
+      id: (cbor['id'] as List).cast<int>(),
+      transports: (cbor['transports'] as List?)?.cast<String>(),
+    );
+  }
 
   CborValue toCbor() {
-    return CborValue({
+    final map = <String, dynamic>{
       'type': type,
       'id': CborBytes(id),
-    });
+    };
+    if (transports != null) {
+      map['transports'] = transports;
+    }
+    return CborValue(map);
   }
 
   @override

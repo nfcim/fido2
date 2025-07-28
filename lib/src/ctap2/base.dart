@@ -1,6 +1,5 @@
 import 'package:fido2/src/ctap.dart';
 
-// 导入新拆分的文件
 import 'constants.dart';
 import 'entities/authenticator_info.dart';
 import 'requests/client_pin.dart';
@@ -26,34 +25,28 @@ class Ctap2 {
   AuthenticatorInfo get info => _info;
 
   Future<CtapResponse<AuthenticatorInfo>> refreshInfo() async {
-    final req = GetInfoUtils.makeGetInfoRequest();
+    final req = GetInfoRequest().encode();
     final res = await device.transceive(req);
-    return CtapResponse(
-        res.status, GetInfoUtils.parseGetInfoResponse(res.data));
+    return CtapResponse(res.status, AuthenticatorInfo.decode(res.data));
   }
 
   Future<CtapResponse<ClientPinResponse?>> clientPin(
       ClientPinRequest request) async {
-    final req = ClientPinUtils.makeClientPinRequest(request);
+    final req = request.encode();
     final res = await device.transceive(req);
-    return CtapResponse(
-        res.status,
-        res.data.isEmpty
-            ? null
-            : ClientPinUtils.parseClientPinResponse(res.data));
+    return CtapResponse(res.status,
+        res.data.isEmpty ? null : ClientPinResponse.decode(res.data));
   }
 
   Future<CtapResponse<CredentialManagementResponse?>> credentialManagement(
       CredentialManagementRequest request) async {
-    final req =
-        CredentialManagementUtils.makeCredentialManagementRequest(request);
+    final req = request.encode();
     final res = await device.transceive(req);
     return CtapResponse(
         res.status,
         res.data.isEmpty
             ? null
-            : CredentialManagementUtils.parseCredentialManagementResponse(
-                res.data));
+            : CredentialManagementResponse.decode(res.data));
   }
 
   Future<CtapResponse> reset() async {

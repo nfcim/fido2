@@ -20,6 +20,30 @@ class GetAssertionRequest {
     this.pinAuth,
     this.pinProtocol,
   });
+
+  List<int> encode() {
+    final map = <int, dynamic>{};
+    map[1] = CborString(rpId);
+    map[2] = CborBytes(clientDataHash);
+
+    if (allowList != null && allowList!.isNotEmpty) {
+      map[3] = allowList!.map((a) => a.toCbor()).toList();
+    }
+    if (extensions != null) {
+      map[4] = CborValue(extensions!);
+    }
+    if (options != null) {
+      map[5] = CborValue(options!);
+    }
+    if (pinAuth != null) {
+      map[6] = CborBytes(pinAuth!);
+    }
+    if (pinProtocol != null) {
+      map[7] = pinProtocol!;
+    }
+
+    return [Ctap2Commands.getAssertion.value] + cbor.encode(CborValue(map));
+  }
 }
 
 class GetAssertionResponse {
@@ -30,7 +54,7 @@ class GetAssertionResponse {
   final int? numberOfCredentials;
   final bool? userSelected;
   final List<int>? largeBlobKey;
-  
+
   GetAssertionResponse({
     required this.credential,
     required this.authData,
@@ -40,34 +64,8 @@ class GetAssertionResponse {
     this.userSelected,
     this.largeBlobKey,
   });
-}
 
-class GetAssertionUtils {
-  static List<int> makeGetAssertionRequest(GetAssertionRequest request) {
-    final map = <int, dynamic>{};
-    map[1] = CborString(request.rpId);
-    map[2] = CborBytes(request.clientDataHash);
-
-    if (request.allowList != null && request.allowList!.isNotEmpty) {
-      map[3] = request.allowList!.map((a) => a.toCbor()).toList();
-    }
-    if (request.extensions != null) {
-      map[4] = CborValue(request.extensions!);
-    }
-    if (request.options != null) {
-      map[5] = CborValue(request.options!);
-    }
-    if (request.pinAuth != null) {
-      map[6] = CborBytes(request.pinAuth!);
-    }
-    if (request.pinProtocol != null) {
-      map[7] = request.pinProtocol!;
-    }
-
-    return [Ctap2Commands.getAssertion.value] + cbor.encode(CborValue(map));
-  }
-
-  static GetAssertionResponse parseGetAssertionResponse(List<int> data) {
+  static GetAssertionResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     final credentialMap = map[1] as Map?;
     return GetAssertionResponse(
@@ -78,15 +76,11 @@ class GetAssertionUtils {
       authData: (map[2] as List?)?.cast<int>() ?? [],
       signature: (map[3] as List?)?.cast<int>() ?? [],
       user: (map[4] as Map?)?.cast<String, dynamic>() != null
-          ? PublicKeyCredentialUserEntity(
-              id: (map[4]['id'] as List?)?.cast<int>() ?? [],
-              name: map[4]['name'] as String,
-              displayName: map[4]['displayName'] as String,
-            )
+          ? PublicKeyCredentialUserEntity.fromCbor(map[4])
           : null,
       numberOfCredentials: map[5] as int?,
       userSelected: map[6] as bool?,
       largeBlobKey: (map[7] as List?)?.cast<int>(),
     );
   }
-} 
+}

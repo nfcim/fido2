@@ -22,6 +22,33 @@ class ClientPinRequest {
     this.permissions,
     this.rpId,
   });
+
+  List<int> encode() {
+    final map = <int, dynamic>{};
+    if (pinUvAuthProtocol != null) {
+      map[1] = pinUvAuthProtocol!;
+    }
+    map[2] = subCommand;
+    if (keyAgreement != null) {
+      map[3] = keyAgreement!.toCbor();
+    }
+    if (pinUvAuthParam != null) {
+      map[4] = CborBytes(pinUvAuthParam!);
+    }
+    if (newPinEnc != null) {
+      map[5] = CborBytes(newPinEnc!);
+    }
+    if (pinHashEnc != null) {
+      map[6] = CborBytes(pinHashEnc!);
+    }
+    if (permissions != null) {
+      map[9] = permissions!;
+    }
+    if (rpId != null) {
+      map[10] = CborString(rpId!);
+    }
+    return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
+  }
 }
 
 class ClientPinResponse {
@@ -38,39 +65,8 @@ class ClientPinResponse {
     this.powerCycleState,
     this.uvRetries,
   });
-}
 
-class ClientPinUtils {
-  /// Make the request to clientPin.
-  static List<int> makeClientPinRequest(ClientPinRequest request) {
-    final map = <int, dynamic>{};
-    if (request.pinUvAuthProtocol != null) {
-      map[1] = request.pinUvAuthProtocol!;
-    }
-    map[2] = request.subCommand;
-    if (request.keyAgreement != null) {
-      map[3] = request.keyAgreement!.toCbor();
-    }
-    if (request.pinUvAuthParam != null) {
-      map[4] = CborBytes(request.pinUvAuthParam!);
-    }
-    if (request.newPinEnc != null) {
-      map[5] = CborBytes(request.newPinEnc!);
-    }
-    if (request.pinHashEnc != null) {
-      map[6] = CborBytes(request.pinHashEnc!);
-    }
-    if (request.permissions != null) {
-      map[9] = request.permissions!;
-    }
-    if (request.rpId != null) {
-      map[10] = CborString(request.rpId!);
-    }
-    return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
-  }
-
-  /// Parse the response from clientPin.
-  static ClientPinResponse parseClientPinResponse(List<int> data) {
+  static ClientPinResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     final keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
     return ClientPinResponse(
@@ -82,4 +78,4 @@ class ClientPinUtils {
       uvRetries: map[5] as int?,
     );
   }
-} 
+}
