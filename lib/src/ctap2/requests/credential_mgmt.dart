@@ -18,15 +18,15 @@ class CredentialManagementRequest {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[1] = subCommand;
+    map[credMgmtSubCmdIdx] = subCommand;
     if (params != null) {
-      map[2] = params;
+      map[credMgmtParamsIdx] = params;
     }
     if (pinUvAuthProtocol != null) {
-      map[3] = pinUvAuthProtocol!;
+      map[credMgmtPinUvAuthProtocolIdx] = pinUvAuthProtocol!;
     }
     if (pinUvAuthParam != null) {
-      map[4] = CborBytes(pinUvAuthParam!);
+      map[credMgmtPinUvAuthParamIdx] = CborBytes(pinUvAuthParam!);
     }
     return [Ctap2Commands.credentialManagement.value] +
         cbor.encode(CborValue(map));
@@ -62,16 +62,21 @@ class CredentialManagementResponse {
 
   static CredentialManagementResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
-    final rpMap = (map[3] as Map?)?.cast<String, dynamic>();
-    final userMap = (map[6] as Map?)?.cast<String, dynamic>();
-    final credentialIdMap = (map[7] as Map?)?.cast<String, dynamic>();
-    final publicKeyMap = (map[8] as Map?)?.cast<int, dynamic>();
+    final rpMap = (map[credMgmtRspRpIdx] as Map?)?.cast<String, dynamic>();
+    final userMap = (map[credMgmtRspUserIdx] as Map?)?.cast<String, dynamic>();
+    final credentialIdMap =
+        (map[credMgmtRspCredentialIdIdx] as Map?)?.cast<String, dynamic>();
+    final publicKeyMap =
+        (map[credMgmtRspPublicKeyIdx] as Map?)?.cast<int, dynamic>();
     return CredentialManagementResponse(
-      existingResidentCredentialsCount: map[1] as int?,
-      maxPossibleRemainingResidentCredentialsCount: map[2] as int?,
+      existingResidentCredentialsCount:
+          map[credMgmtRspExistingResidentCredentialsCountIdx] as int?,
+      maxPossibleRemainingResidentCredentialsCount:
+          map[credMgmtRspMaxPossibleRemainingResidentCredentialsCountIdx]
+              as int?,
       rp: rpMap != null ? PublicKeyCredentialRpEntity.fromCbor(rpMap) : null,
-      rpIdHash: (map[4] as List?)?.cast<int>(),
-      totalRPs: map[5] as int?,
+      rpIdHash: (map[credMgmtRspRpIdHashIdx] as List?)?.cast<int>(),
+      totalRPs: map[credMgmtRspTotalRPsIdx] as int?,
       user: userMap != null
           ? PublicKeyCredentialUserEntity.fromCbor(userMap)
           : null,
@@ -79,9 +84,9 @@ class CredentialManagementResponse {
           ? PublicKeyCredentialDescriptor.fromCbor(credentialIdMap)
           : null,
       publicKey: publicKeyMap != null ? CoseKey.parse(publicKeyMap) : null,
-      totalCredentials: map[9] as int?,
-      credProtect: map[10] as int?,
-      largeBlobKey: (map[11] as List?)?.cast<int>(),
+      totalCredentials: map[credMgmtRspTotalCredentialsIdx] as int?,
+      credProtect: map[credMgmtRspCredProtectIdx] as int?,
+      largeBlobKey: (map[credMgmtRspLargeBlobKeyIdx] as List?)?.cast<int>(),
     );
   }
 }

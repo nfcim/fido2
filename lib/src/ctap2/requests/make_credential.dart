@@ -29,27 +29,28 @@ class MakeCredentialRequest {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[1] = CborBytes(clientDataHash);
-    map[2] = rp.toCbor();
-    map[3] = user.toCbor();
-    map[4] = pubKeyCredParams.map((p) => CborValue(p)).toList();
+    map[mcClientDataHashIdx] = CborBytes(clientDataHash);
+    map[mcRpIdx] = rp.toCbor();
+    map[mcUserIdx] = user.toCbor();
+    map[mcPubKeyCredParamsIdx] =
+        pubKeyCredParams.map((p) => CborValue(p)).toList();
     if (excludeList != null && excludeList!.isNotEmpty) {
-      map[5] = excludeList!.map((e) => e.toCbor()).toList();
+      map[mcExcludeListIdx] = excludeList!.map((e) => e.toCbor()).toList();
     }
     if (extensions != null) {
-      map[6] = CborValue(extensions!);
+      map[mcExtensionsIdx] = CborValue(extensions!);
     }
     if (options != null) {
-      map[7] = CborValue(options!);
+      map[mcOptionsIdx] = CborValue(options!);
     }
     if (pinAuth != null) {
-      map[8] = CborBytes(pinAuth!);
+      map[mcPinAuthIdx] = CborBytes(pinAuth!);
     }
     if (pinProtocol != null) {
-      map[9] = pinProtocol!;
+      map[mcPinProtocolIdx] = pinProtocol!;
     }
     if (enterpriseAttestation != null) {
-      map[10] = enterpriseAttestation!;
+      map[mcEnterpriseAttestationIdx] = enterpriseAttestation!;
     }
     return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
   }
@@ -73,11 +74,11 @@ class MakeCredentialResponse {
   static MakeCredentialResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     return MakeCredentialResponse(
-      fmt: map[1] as String,
-      authData: (map[2] as List?)?.cast<int>() ?? [],
-      attStmt: (map[3] as Map?)?.cast<String, dynamic>() ?? {},
-      epAtt: map[4] as bool?,
-      largeBlobKey: (map[5] as List?)?.cast<int>(),
+      fmt: map[mcRspFmtIdx] as String,
+      authData: (map[mcRspAuthDataIdx] as List?)?.cast<int>() ?? [],
+      attStmt: (map[mcRspAttStmtIdx] as Map?)?.cast<String, dynamic>() ?? {},
+      epAtt: map[mcRspEpAttIdx] as bool?,
+      largeBlobKey: (map[mcRspLargeBlobKeyIdx] as List?)?.cast<int>(),
     );
   }
 }

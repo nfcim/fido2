@@ -23,23 +23,23 @@ class GetAssertionRequest {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[1] = CborString(rpId);
-    map[2] = CborBytes(clientDataHash);
+    map[gaRpIdIdx] = CborString(rpId);
+    map[gaClientDataHashIdx] = CborBytes(clientDataHash);
 
     if (allowList != null && allowList!.isNotEmpty) {
-      map[3] = allowList!.map((a) => a.toCbor()).toList();
+      map[gaAllowListIdx] = allowList!.map((a) => a.toCbor()).toList();
     }
     if (extensions != null) {
-      map[4] = CborValue(extensions!);
+      map[gaExtensionsIdx] = CborValue(extensions!);
     }
     if (options != null) {
-      map[5] = CborValue(options!);
+      map[gaOptionsIdx] = CborValue(options!);
     }
     if (pinAuth != null) {
-      map[6] = CborBytes(pinAuth!);
+      map[gaPinAuthIdx] = CborBytes(pinAuth!);
     }
     if (pinProtocol != null) {
-      map[7] = pinProtocol!;
+      map[gaPinProtocolIdx] = pinProtocol!;
     }
 
     return [Ctap2Commands.getAssertion.value] + cbor.encode(CborValue(map));
@@ -67,20 +67,20 @@ class GetAssertionResponse {
 
   static GetAssertionResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
-    final credentialMap = map[1] as Map?;
+    final credentialMap = map[gaRspCredentialIdx] as Map?;
     return GetAssertionResponse(
       credential: PublicKeyCredentialDescriptor(
         type: credentialMap?['type'] as String? ?? '',
         id: (credentialMap?['id'] as List?)?.cast<int>() ?? [],
       ),
-      authData: (map[2] as List?)?.cast<int>() ?? [],
-      signature: (map[3] as List?)?.cast<int>() ?? [],
-      user: (map[4] as Map?)?.cast<String, dynamic>() != null
-          ? PublicKeyCredentialUserEntity.fromCbor(map[4])
+      authData: (map[gaRspAuthDataIdx] as List?)?.cast<int>() ?? [],
+      signature: (map[gaRspSignatureIdx] as List?)?.cast<int>() ?? [],
+      user: (map[gaRspUserIdx] as Map?)?.cast<String, dynamic>() != null
+          ? PublicKeyCredentialUserEntity.fromCbor(map[gaRspUserIdx])
           : null,
-      numberOfCredentials: map[5] as int?,
-      userSelected: map[6] as bool?,
-      largeBlobKey: (map[7] as List?)?.cast<int>(),
+      numberOfCredentials: map[gaRspNumberOfCredentialsIdx] as int?,
+      userSelected: map[gaRspUserSelectedIdx] as bool?,
+      largeBlobKey: (map[gaRspLargeBlobKeyIdx] as List?)?.cast<int>(),
     );
   }
 }

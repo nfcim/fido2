@@ -26,26 +26,26 @@ class ClientPinRequest {
   List<int> encode() {
     final map = <int, dynamic>{};
     if (pinUvAuthProtocol != null) {
-      map[1] = pinUvAuthProtocol!;
+      map[cpPinUvAuthProtocolIdx] = pinUvAuthProtocol!;
     }
-    map[2] = subCommand;
+    map[cpSubCommandIdx] = subCommand;
     if (keyAgreement != null) {
-      map[3] = keyAgreement!.toCbor();
+      map[cpKeyAgreementIdx] = keyAgreement!.toCbor();
     }
     if (pinUvAuthParam != null) {
-      map[4] = CborBytes(pinUvAuthParam!);
+      map[cpPinUvAuthParamIdx] = CborBytes(pinUvAuthParam!);
     }
     if (newPinEnc != null) {
-      map[5] = CborBytes(newPinEnc!);
+      map[cpNewPinEncIdx] = CborBytes(newPinEnc!);
     }
     if (pinHashEnc != null) {
-      map[6] = CborBytes(pinHashEnc!);
+      map[cpPinHashEncIdx] = CborBytes(pinHashEnc!);
     }
     if (permissions != null) {
-      map[9] = permissions!;
+      map[cpPermissionsIdx] = permissions!;
     }
     if (rpId != null) {
-      map[10] = CborString(rpId!);
+      map[cpRpIdIdx] = CborString(rpId!);
     }
     return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
   }
@@ -68,14 +68,15 @@ class ClientPinResponse {
 
   static ClientPinResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
-    final keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
+    final keyAgreementMap =
+        (map[cpRspKeyAgreementIdx] as Map?)?.cast<int, dynamic>();
     return ClientPinResponse(
       keyAgreement:
           keyAgreementMap != null ? CoseKey.parse(keyAgreementMap) : null,
-      pinUvAuthToken: (map[2] as List?)?.cast<int>(),
-      pinRetries: map[3] as int?,
-      powerCycleState: map[4] as bool?,
-      uvRetries: map[5] as int?,
+      pinUvAuthToken: (map[cpRspPinUvAuthTokenIdx] as List?)?.cast<int>(),
+      pinRetries: map[cpRspPinRetriesIdx] as int?,
+      powerCycleState: map[cpRspPowerCycleStateIdx] as bool?,
+      uvRetries: map[cpRspUvRetriesIdx] as int?,
     );
   }
 }
