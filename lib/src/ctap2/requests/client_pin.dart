@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import 'package:fido2/src/cose.dart';
 import '../constants.dart';
 
@@ -58,6 +59,38 @@ class ClientPinRequest {
     }
     return [Ctap2Commands.clientPIN.value] + cbor.encode(CborValue(map));
   }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('ClientPinRequest(');
+    buffer.writeln('  subCommand: $subCommand,');
+
+    if (pinUvAuthProtocol != null) {
+      buffer.writeln('  pinUvAuthProtocol: $pinUvAuthProtocol,');
+    }
+    if (keyAgreement != null) {
+      buffer.writeln('  keyAgreement: $keyAgreement,');
+    }
+    if (pinUvAuthParam != null) {
+      buffer.writeln('  pinUvAuthParam: ${hex.encode(pinUvAuthParam!)},');
+    }
+    if (newPinEnc != null) {
+      buffer.writeln('  newPinEnc: ${hex.encode(newPinEnc!)},');
+    }
+    if (pinHashEnc != null) {
+      buffer.writeln('  pinHashEnc: ${hex.encode(pinHashEnc!)},');
+    }
+    if (permissions != null) {
+      buffer.writeln('  permissions: $permissions,');
+    }
+    if (rpId != null) {
+      buffer.writeln('  rpId: $rpId,');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class ClientPinResponse {
@@ -93,5 +126,24 @@ class ClientPinResponse {
       powerCycleState: map[powerCycleStateIdx] as bool?,
       uvRetries: map[uvRetriesIdx] as int?,
     );
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('ClientPinResponse(');
+
+    if (keyAgreement != null) buffer.writeln('  keyAgreement: $keyAgreement,');
+    if (pinUvAuthToken != null) {
+      buffer.writeln('  pinUvAuthToken: ${hex.encode(pinUvAuthToken!)},');
+    }
+    if (pinRetries != null) buffer.writeln('  pinRetries: $pinRetries,');
+    if (powerCycleState != null) {
+      buffer.writeln('  powerCycleState: $powerCycleState,');
+    }
+    if (uvRetries != null) buffer.writeln('  uvRetries: $uvRetries,');
+
+    buffer.write(')');
+    return buffer.toString();
   }
 }

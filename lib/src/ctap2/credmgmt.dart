@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import 'package:fido2/src/cose.dart';
 import 'package:fido2/src/ctap.dart';
 import 'package:fido2/src/ctap2/base.dart';
@@ -39,6 +40,18 @@ class CmMetadata {
     required this.existingResidentCredentialsCount,
     required this.maxPossibleRemainingResidentCredentialsCount,
   });
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CmMetadata(');
+    buffer.writeln(
+        '  existingResidentCredentialsCount: $existingResidentCredentialsCount,');
+    buffer.writeln(
+        '  maxPossibleRemainingResidentCredentialsCount: $maxPossibleRemainingResidentCredentialsCount');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class CmRp {
@@ -51,6 +64,17 @@ class CmRp {
     required this.rpIdHash,
     this.totalRPs,
   });
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CmRp(');
+    buffer.writeln('  rp: $rp,');
+    buffer.writeln('  rpIdHash: ${hex.encode(rpIdHash)},');
+    if (totalRPs != null) buffer.writeln('  totalRPs: $totalRPs,');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class CmCredential {
@@ -69,6 +93,26 @@ class CmCredential {
     required this.credProtect,
     this.largeBlobKey,
   });
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CmCredential(');
+    buffer.writeln('  user: $user,');
+    buffer.writeln('  credentialId: $credentialId,');
+    buffer.writeln('  publicKey: $publicKey,');
+    buffer.writeln('  credProtect: $credProtect,');
+
+    if (totalCredentials != null) {
+      buffer.writeln('  totalCredentials: $totalCredentials,');
+    }
+    if (largeBlobKey != null) {
+      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class CredentialManagement {

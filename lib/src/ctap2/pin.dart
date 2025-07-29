@@ -5,7 +5,9 @@ import 'package:cryptography/cryptography.dart';
 import 'package:cryptography/helpers.dart';
 import 'package:elliptic/ecdh.dart';
 import 'package:elliptic/elliptic.dart';
-import 'package:fido2/fido2.dart';
+import 'package:fido2/src/cose.dart';
+import 'package:fido2/src/ctap.dart';
+import 'package:fido2/src/ctap2/base.dart';
 import 'package:fido2/src/ctap2/entities/authenticator_info.dart';
 import 'package:fido2/src/ctap2/requests/client_pin.dart';
 import 'package:quiver/collection.dart';
@@ -15,6 +17,16 @@ class EncapsulateResult {
   final List<int> sharedSecret;
 
   EncapsulateResult(this.coseKey, this.sharedSecret);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('EncapsulateResult(');
+    buffer.writeln('  coseKey: $coseKey,');
+    buffer.writeln('  sharedSecret: ${hex.encode(sharedSecret)}');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 sealed class PinProtocol {

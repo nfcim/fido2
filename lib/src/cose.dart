@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 
 /// Represents a key as specified by RFC8152:
 /// [CBOR Object Signing and Encryption (COSE)](https://tools.ietf.org/html/rfc8152)
@@ -39,11 +40,33 @@ sealed class CoseKey extends MapView<int, dynamic> {
   static List<int> supportedAlgorithms() {
     return [ES256.algorithm];
   }
+
+  @override
+  String toString() {
+    final alg = this[3];
+    final buffer = StringBuffer();
+    buffer.writeln('CoseKey(');
+    buffer.writeln('  algorithm: $alg,');
+    buffer.writeln('  params: ${Map<int, dynamic>.from(this)}');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 /// Represents a currently unsupported COSE key type
 class UnsupportedKey extends CoseKey {
   UnsupportedKey(super.coseKeyParams);
+
+  @override
+  String toString() {
+    final alg = this[3];
+    final buffer = StringBuffer();
+    buffer.writeln('UnsupportedKey(');
+    buffer.writeln('  algorithm: $alg,');
+    buffer.writeln('  params: ${Map<int, dynamic>.from(this)}');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 /// Represents a COSE key of type ES256 (ECDSA w/ SHA-256, see RFC8152 8.1)
@@ -73,6 +96,19 @@ class ES256 extends CoseKey {
       -3: CborBytes(this[-3]),
     });
   }
+
+  @override
+  String toString() {
+    final x = this[-2] as List<int>?;
+    final y = this[-3] as List<int>?;
+    final buffer = StringBuffer();
+    buffer.writeln('ES256(');
+    buffer.writeln('  algorithm: $algorithm,');
+    buffer.writeln('  x: ${x != null ? hex.encode(x) : null},');
+    buffer.writeln('  y: ${y != null ? hex.encode(y) : null}');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 /// Represents a COSE key of type ECDH-ES+HKDF-256 (see RFC8152 11.1)
@@ -101,5 +137,18 @@ class EcdhEsHkdf256 extends CoseKey {
       -2: CborBytes(this[-2]),
       -3: CborBytes(this[-3]),
     });
+  }
+
+  @override
+  String toString() {
+    final x = this[-2] as List<int>?;
+    final y = this[-3] as List<int>?;
+    final buffer = StringBuffer();
+    buffer.writeln('EcdhEsHkdf256(');
+    buffer.writeln('  algorithm: $algorithm,');
+    buffer.writeln('  x: ${x != null ? hex.encode(x) : null},');
+    buffer.writeln('  y: ${y != null ? hex.encode(y) : null}');
+    buffer.write(')');
+    return buffer.toString();
   }
 }
