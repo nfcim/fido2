@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import 'package:fido2/src/cose.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
@@ -30,6 +31,26 @@ class CredentialManagementRequest {
     }
     return [Ctap2Commands.credentialManagement.value] +
         cbor.encode(CborValue(map));
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CredentialManagementRequest(');
+    buffer.writeln('  subCommand: $subCommand,');
+
+    if (params != null) {
+      buffer.writeln('  params: $params,');
+    }
+    if (pinUvAuthProtocol != null) {
+      buffer.writeln('  pinUvAuthProtocol: $pinUvAuthProtocol,');
+    }
+    if (pinUvAuthParam != null) {
+      buffer.writeln('  pinUvAuthParam: ${hex.encode(pinUvAuthParam!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
   }
 }
 
@@ -88,5 +109,50 @@ class CredentialManagementResponse {
       credProtect: map[credMgmtRspCredProtectIdx] as int?,
       largeBlobKey: (map[credMgmtRspLargeBlobKeyIdx] as List?)?.cast<int>(),
     );
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CredentialManagementResponse(');
+
+    if (existingResidentCredentialsCount != null) {
+      buffer.writeln(
+          '  existingResidentCredentialsCount: $existingResidentCredentialsCount,');
+    }
+    if (maxPossibleRemainingResidentCredentialsCount != null) {
+      buffer.writeln(
+          '  maxPossibleRemainingResidentCredentialsCount: $maxPossibleRemainingResidentCredentialsCount,');
+    }
+    if (rp != null) {
+      buffer.writeln('  rp: $rp,');
+    }
+    if (rpIdHash != null) {
+      buffer.writeln('  rpIdHash: ${hex.encode(rpIdHash!)},');
+    }
+    if (totalRPs != null) {
+      buffer.writeln('  totalRPs: $totalRPs,');
+    }
+    if (user != null) {
+      buffer.writeln('  user: $user,');
+    }
+    if (credentialId != null) {
+      buffer.writeln('  credentialId: $credentialId,');
+    }
+    if (publicKey != null) {
+      buffer.writeln('  publicKey: $publicKey,');
+    }
+    if (totalCredentials != null) {
+      buffer.writeln('  totalCredentials: $totalCredentials,');
+    }
+    if (credProtect != null) {
+      buffer.writeln('  credProtect: $credProtect,');
+    }
+    if (largeBlobKey != null) {
+      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
   }
 }
