@@ -1,8 +1,28 @@
 import 'package:cbor/cbor.dart';
 
-import '../constants.dart';
-
 class AuthenticatorInfo {
+  static const int versionsIdx = 1;
+  static const int extensionsIdx = 2;
+  static const int aaguidIdx = 3;
+  static const int optionsIdx = 4;
+  static const int maxMsgSizeIdx = 5;
+  static const int pinUvAuthProtocolsIdx = 6;
+  static const int maxCredentialCountInListIdx = 7;
+  static const int maxCredentialIdLengthIdx = 8;
+  static const int transportsIdx = 9;
+  static const int algorithmsIdx = 10;
+  static const int maxSerializedLargeBlobArrayIdx = 11;
+  static const int forcePinChangeIdx = 12;
+  static const int minPinLengthIdx = 13;
+  static const int firmwareVersionIdx = 14;
+  static const int maxCredBlobLengthIdx = 15;
+  static const int maxRpIdsForSetMinPinLengthIdx = 16;
+  static const int preferredPlatformUvAttemptsIdx = 17;
+  static const int uvModalityIdx = 18;
+  static const int certificationsIdx = 19;
+  static const int remainingDiscoverableCredentialsIdx = 20;
+  static const int vendorPrototypeConfigCommandsIdx = 21;
+
   final List<String> versions;
   final List<String>? extensions;
   final List<int> aaguid;
@@ -51,66 +71,65 @@ class AuthenticatorInfo {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[authInfoVersionsIdx] = versions;
+    map[versionsIdx] = versions;
     if (extensions != null) {
-      map[authInfoExtensionsIdx] = extensions;
+      map[extensionsIdx] = extensions;
     }
-    map[authInfoAaguidIdx] = aaguid;
+    map[aaguidIdx] = aaguid;
     if (options != null) {
-      map[authInfoOptionsIdx] = options;
+      map[optionsIdx] = options;
     }
     if (maxMsgSize != null) {
-      map[authInfoMaxMsgSizeIdx] = maxMsgSize;
+      map[maxMsgSizeIdx] = maxMsgSize;
     }
     if (pinUvAuthProtocols != null) {
-      map[authInfoPinUvAuthProtocolsIdx] = pinUvAuthProtocols;
+      map[pinUvAuthProtocolsIdx] = pinUvAuthProtocols;
     }
     if (maxCredentialCountInList != null) {
-      map[authInfoMaxCredentialCountInListIdx] = maxCredentialCountInList;
+      map[maxCredentialCountInListIdx] = maxCredentialCountInList;
     }
     if (maxCredentialIdLength != null) {
-      map[authInfoMaxCredentialIdLengthIdx] = maxCredentialIdLength;
+      map[maxCredentialIdLengthIdx] = maxCredentialIdLength;
     }
     if (transports != null) {
-      map[authInfoTransportsIdx] = transports;
+      map[transportsIdx] = transports;
     }
     if (algorithms != null) {
-      map[authInfoAlgorithmsIdx] = algorithms;
+      map[algorithmsIdx] = algorithms;
     }
     if (maxSerializedLargeBlobArray != null) {
-      map[authInfoMaxSerializedLargeBlobArrayIdx] = maxSerializedLargeBlobArray;
+      map[maxSerializedLargeBlobArrayIdx] = maxSerializedLargeBlobArray;
     }
     if (forcePinChange != null) {
-      map[authInfoForcePinChangeIdx] = forcePinChange;
+      map[forcePinChangeIdx] = forcePinChange;
     }
     if (minPinLength != null) {
-      map[authInfoMinPinLengthIdx] = minPinLength;
+      map[minPinLengthIdx] = minPinLength;
     }
     if (firmwareVersion != null) {
-      map[authInfoFirmwareVersionIdx] = firmwareVersion;
+      map[firmwareVersionIdx] = firmwareVersion;
     }
     if (maxCredBlobLength != null) {
-      map[authInfoMaxCredBlobLengthIdx] = maxCredBlobLength;
+      map[maxCredBlobLengthIdx] = maxCredBlobLength;
     }
     if (maxRpIdsForSetMinPinLength != null) {
-      map[authInfoMaxRpIdsForSetMinPinLengthIdx] = maxRpIdsForSetMinPinLength;
+      map[maxRpIdsForSetMinPinLengthIdx] = maxRpIdsForSetMinPinLength;
     }
     if (preferredPlatformUvAttempts != null) {
-      map[authInfoPreferredPlatformUvAttemptsIdx] = preferredPlatformUvAttempts;
+      map[preferredPlatformUvAttemptsIdx] = preferredPlatformUvAttempts;
     }
     if (uvModality != null) {
-      map[authInfoUvModalityIdx] = uvModality;
+      map[uvModalityIdx] = uvModality;
     }
     if (certifications != null) {
-      map[authInfoCertificationsIdx] = certifications;
+      map[certificationsIdx] = certifications;
     }
     if (remainingDiscoverableCredentials != null) {
-      map[authInfoRemainingDiscoverableCredentialsIdx] =
+      map[remainingDiscoverableCredentialsIdx] =
           remainingDiscoverableCredentials;
     }
     if (vendorPrototypeConfigCommands != null) {
-      map[authInfoVendorPrototypeConfigCommandsIdx] =
-          vendorPrototypeConfigCommands;
+      map[vendorPrototypeConfigCommandsIdx] = vendorPrototypeConfigCommands;
     }
     return cbor.encode(CborValue(map));
   }
@@ -118,36 +137,29 @@ class AuthenticatorInfo {
   static AuthenticatorInfo decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     return AuthenticatorInfo(
-      versions: (map[authInfoVersionsIdx] as List).cast<String>(),
-      extensions: (map[authInfoExtensionsIdx] as List?)?.cast<String>(),
-      aaguid: map[authInfoAaguidIdx] as List<int>,
-      options: (map[authInfoOptionsIdx] as Map?)?.cast<String, bool>(),
-      maxMsgSize: map[authInfoMaxMsgSizeIdx] as int?,
-      pinUvAuthProtocols:
-          (map[authInfoPinUvAuthProtocolsIdx] as List?)?.cast<int>(),
-      maxCredentialCountInList:
-          map[authInfoMaxCredentialCountInListIdx] as int?,
-      maxCredentialIdLength: map[authInfoMaxCredentialIdLengthIdx] as int?,
-      transports: (map[authInfoTransportsIdx] as List?)?.cast<String>(),
-      algorithms:
-          (map[authInfoAlgorithmsIdx] as List?)?.cast<Map<String, int>>(),
-      maxSerializedLargeBlobArray:
-          map[authInfoMaxSerializedLargeBlobArrayIdx] as int?,
-      forcePinChange: map[authInfoForcePinChangeIdx] as bool?,
-      minPinLength: map[authInfoMinPinLengthIdx] as int?,
-      firmwareVersion: map[authInfoFirmwareVersionIdx] as int?,
-      maxCredBlobLength: map[authInfoMaxCredBlobLengthIdx] as int?,
-      maxRpIdsForSetMinPinLength:
-          map[authInfoMaxRpIdsForSetMinPinLengthIdx] as int?,
-      preferredPlatformUvAttempts:
-          map[authInfoPreferredPlatformUvAttemptsIdx] as int?,
-      uvModality: map[authInfoUvModalityIdx] as int?,
-      certifications:
-          (map[authInfoCertificationsIdx] as Map?)?.cast<String, int>(),
+      versions: (map[versionsIdx] as List).cast<String>(),
+      extensions: (map[extensionsIdx] as List?)?.cast<String>(),
+      aaguid: map[aaguidIdx] as List<int>,
+      options: (map[optionsIdx] as Map?)?.cast<String, bool>(),
+      maxMsgSize: map[maxMsgSizeIdx] as int?,
+      pinUvAuthProtocols: (map[pinUvAuthProtocolsIdx] as List?)?.cast<int>(),
+      maxCredentialCountInList: map[maxCredentialCountInListIdx] as int?,
+      maxCredentialIdLength: map[maxCredentialIdLengthIdx] as int?,
+      transports: (map[transportsIdx] as List?)?.cast<String>(),
+      algorithms: (map[algorithmsIdx] as List?)?.cast<Map<String, int>>(),
+      maxSerializedLargeBlobArray: map[maxSerializedLargeBlobArrayIdx] as int?,
+      forcePinChange: map[forcePinChangeIdx] as bool?,
+      minPinLength: map[minPinLengthIdx] as int?,
+      firmwareVersion: map[firmwareVersionIdx] as int?,
+      maxCredBlobLength: map[maxCredBlobLengthIdx] as int?,
+      maxRpIdsForSetMinPinLength: map[maxRpIdsForSetMinPinLengthIdx] as int?,
+      preferredPlatformUvAttempts: map[preferredPlatformUvAttemptsIdx] as int?,
+      uvModality: map[uvModalityIdx] as int?,
+      certifications: (map[certificationsIdx] as Map?)?.cast<String, int>(),
       remainingDiscoverableCredentials:
-          map[authInfoRemainingDiscoverableCredentialsIdx] as int?,
+          map[remainingDiscoverableCredentialsIdx] as int?,
       vendorPrototypeConfigCommands:
-          (map[authInfoVendorPrototypeConfigCommandsIdx] as List?)?.cast<int>(),
+          (map[vendorPrototypeConfigCommandsIdx] as List?)?.cast<int>(),
     );
   }
 }

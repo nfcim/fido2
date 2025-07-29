@@ -3,6 +3,14 @@ import '../constants.dart';
 import '../entities/credential_entities.dart';
 
 class GetAssertionRequest {
+  static const int rpIdIdx = 1;
+  static const int clientDataHashIdx = 2;
+  static const int allowListIdx = 3;
+  static const int extensionsIdx = 4;
+  static const int optionsIdx = 5;
+  static const int pinAuthIdx = 6;
+  static const int pinProtocolIdx = 7;
+
   final String rpId;
   final List<int> clientDataHash;
   final List<PublicKeyCredentialDescriptor>? allowList;
@@ -23,23 +31,23 @@ class GetAssertionRequest {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[gaRpIdIdx] = CborString(rpId);
-    map[gaClientDataHashIdx] = CborBytes(clientDataHash);
+    map[rpIdIdx] = CborString(rpId);
+    map[clientDataHashIdx] = CborBytes(clientDataHash);
 
     if (allowList != null && allowList!.isNotEmpty) {
-      map[gaAllowListIdx] = allowList!.map((a) => a.toCbor()).toList();
+      map[allowListIdx] = allowList!.map((a) => a.toCbor()).toList();
     }
     if (extensions != null) {
-      map[gaExtensionsIdx] = CborValue(extensions!);
+      map[extensionsIdx] = CborValue(extensions!);
     }
     if (options != null) {
-      map[gaOptionsIdx] = CborValue(options!);
+      map[optionsIdx] = CborValue(options!);
     }
     if (pinAuth != null) {
-      map[gaPinAuthIdx] = CborBytes(pinAuth!);
+      map[pinAuthIdx] = CborBytes(pinAuth!);
     }
     if (pinProtocol != null) {
-      map[gaPinProtocolIdx] = pinProtocol!;
+      map[pinProtocolIdx] = pinProtocol!;
     }
 
     return [Ctap2Commands.getAssertion.value] + cbor.encode(CborValue(map));
@@ -47,6 +55,14 @@ class GetAssertionRequest {
 }
 
 class GetAssertionResponse {
+  static const int credentialIdx = 1;
+  static const int authDataIdx = 2;
+  static const int signatureIdx = 3;
+  static const int userIdx = 4;
+  static const int numberOfCredentialsIdx = 5;
+  static const int userSelectedIdx = 6;
+  static const int largeBlobKeyIdx = 7;
+
   final PublicKeyCredentialDescriptor credential;
   final List<int> authData;
   final List<int> signature;
@@ -67,20 +83,20 @@ class GetAssertionResponse {
 
   static GetAssertionResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
-    final credentialMap = map[gaRspCredentialIdx] as Map?;
+    final credentialMap = map[credentialIdx] as Map?;
     return GetAssertionResponse(
       credential: PublicKeyCredentialDescriptor(
         type: credentialMap?['type'] as String? ?? '',
         id: (credentialMap?['id'] as List?)?.cast<int>() ?? [],
       ),
-      authData: (map[gaRspAuthDataIdx] as List?)?.cast<int>() ?? [],
-      signature: (map[gaRspSignatureIdx] as List?)?.cast<int>() ?? [],
-      user: (map[gaRspUserIdx] as Map?)?.cast<String, dynamic>() != null
-          ? PublicKeyCredentialUserEntity.fromCbor(map[gaRspUserIdx])
+      authData: (map[authDataIdx] as List?)?.cast<int>() ?? [],
+      signature: (map[signatureIdx] as List?)?.cast<int>() ?? [],
+      user: (map[userIdx] as Map?)?.cast<String, dynamic>() != null
+          ? PublicKeyCredentialUserEntity.fromCbor(map[userIdx])
           : null,
-      numberOfCredentials: map[gaRspNumberOfCredentialsIdx] as int?,
-      userSelected: map[gaRspUserSelectedIdx] as bool?,
-      largeBlobKey: (map[gaRspLargeBlobKeyIdx] as List?)?.cast<int>(),
+      numberOfCredentials: map[numberOfCredentialsIdx] as int?,
+      userSelected: map[userSelectedIdx] as bool?,
+      largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
     );
   }
 }
