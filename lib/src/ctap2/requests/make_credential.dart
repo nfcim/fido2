@@ -3,6 +3,17 @@ import '../constants.dart';
 import '../entities/credential_entities.dart';
 
 class MakeCredentialRequest {
+  static const int clientDataHashIdx = 1;
+  static const int rpIdx = 2;
+  static const int userIdx = 3;
+  static const int pubKeyCredParamsIdx = 4;
+  static const int excludeListIdx = 5;
+  static const int extensionsIdx = 6;
+  static const int optionsIdx = 7;
+  static const int pinAuthIdx = 8;
+  static const int pinProtocolIdx = 9;
+  static const int enterpriseAttestationIdx = 10;
+
   final List<int> clientDataHash;
   final PublicKeyCredentialRpEntity rp;
   final PublicKeyCredentialUserEntity user;
@@ -29,34 +40,40 @@ class MakeCredentialRequest {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[mcClientDataHashIdx] = CborBytes(clientDataHash);
-    map[mcRpIdx] = rp.toCbor();
-    map[mcUserIdx] = user.toCbor();
-    map[mcPubKeyCredParamsIdx] =
+    map[clientDataHashIdx] = CborBytes(clientDataHash);
+    map[rpIdx] = rp.toCbor();
+    map[userIdx] = user.toCbor();
+    map[pubKeyCredParamsIdx] =
         pubKeyCredParams.map((p) => CborValue(p)).toList();
     if (excludeList != null && excludeList!.isNotEmpty) {
-      map[mcExcludeListIdx] = excludeList!.map((e) => e.toCbor()).toList();
+      map[excludeListIdx] = excludeList!.map((e) => e.toCbor()).toList();
     }
     if (extensions != null) {
-      map[mcExtensionsIdx] = CborValue(extensions!);
+      map[extensionsIdx] = CborValue(extensions!);
     }
     if (options != null) {
-      map[mcOptionsIdx] = CborValue(options!);
+      map[optionsIdx] = CborValue(options!);
     }
     if (pinAuth != null) {
-      map[mcPinAuthIdx] = CborBytes(pinAuth!);
+      map[pinAuthIdx] = CborBytes(pinAuth!);
     }
     if (pinProtocol != null) {
-      map[mcPinProtocolIdx] = pinProtocol!;
+      map[pinProtocolIdx] = pinProtocol!;
     }
     if (enterpriseAttestation != null) {
-      map[mcEnterpriseAttestationIdx] = enterpriseAttestation!;
+      map[enterpriseAttestationIdx] = enterpriseAttestation!;
     }
     return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
   }
 }
 
 class MakeCredentialResponse {
+  static const int fmtIdx = 1;
+  static const int authDataIdx = 2;
+  static const int attStmtIdx = 3;
+  static const int epAttIdx = 4;
+  static const int largeBlobKeyIdx = 5;
+
   final String fmt;
   final List<int> authData;
   final Map<String, dynamic> attStmt;
@@ -74,11 +91,11 @@ class MakeCredentialResponse {
   static MakeCredentialResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     return MakeCredentialResponse(
-      fmt: map[mcRspFmtIdx] as String,
-      authData: (map[mcRspAuthDataIdx] as List?)?.cast<int>() ?? [],
-      attStmt: (map[mcRspAttStmtIdx] as Map?)?.cast<String, dynamic>() ?? {},
-      epAtt: map[mcRspEpAttIdx] as bool?,
-      largeBlobKey: (map[mcRspLargeBlobKeyIdx] as List?)?.cast<int>(),
+      fmt: map[fmtIdx] as String,
+      authData: (map[authDataIdx] as List?)?.cast<int>() ?? [],
+      attStmt: (map[attStmtIdx] as Map?)?.cast<String, dynamic>() ?? {},
+      epAtt: map[epAttIdx] as bool?,
+      largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
     );
   }
 }
