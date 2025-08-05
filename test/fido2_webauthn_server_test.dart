@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:cbor/cbor.dart';
 import 'package:crypto/crypto.dart';
-import 'package:fido2/src/server/webauthn_server.dart';
+import 'package:fido2/src/server/base.dart';
+import 'package:fido2/src/server/config.dart';
+import 'package:fido2/src/server/entities/registration_data.dart';
 import 'package:test/test.dart';
 
 // Test vectors captured from a real session
