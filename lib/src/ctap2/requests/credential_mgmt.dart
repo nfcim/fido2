@@ -1,9 +1,15 @@
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import 'package:fido2/src/cose.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
 
 class CredentialManagementRequest {
+  static const int subCmdIdx = 1;
+  static const int paramsIdx = 2;
+  static const int pinUvAuthProtocolIdx = 3;
+  static const int pinUvAuthParamIdx = 4;
+
   final int subCommand;
   final CborMap? params;
   final int? pinUvAuthProtocol;
@@ -18,22 +24,54 @@ class CredentialManagementRequest {
 
   List<int> encode() {
     final map = <int, dynamic>{};
-    map[credMgmtSubCmdIdx] = subCommand;
+    map[subCmdIdx] = subCommand;
     if (params != null) {
-      map[credMgmtParamsIdx] = params;
+      map[paramsIdx] = params;
     }
     if (pinUvAuthProtocol != null) {
-      map[credMgmtPinUvAuthProtocolIdx] = pinUvAuthProtocol!;
+      map[pinUvAuthProtocolIdx] = pinUvAuthProtocol!;
     }
     if (pinUvAuthParam != null) {
-      map[credMgmtPinUvAuthParamIdx] = CborBytes(pinUvAuthParam!);
+      map[pinUvAuthParamIdx] = CborBytes(pinUvAuthParam!);
     }
     return [Ctap2Commands.credentialManagement.value] +
         cbor.encode(CborValue(map));
   }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CredentialManagementRequest(');
+    buffer.writeln('  subCommand: $subCommand,');
+
+    if (params != null) {
+      buffer.writeln('  params: $params,');
+    }
+    if (pinUvAuthProtocol != null) {
+      buffer.writeln('  pinUvAuthProtocol: $pinUvAuthProtocol,');
+    }
+    if (pinUvAuthParam != null) {
+      buffer.writeln('  pinUvAuthParam: ${hex.encode(pinUvAuthParam!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class CredentialManagementResponse {
+  static const int existingResidentCredentialsCountIdx = 1;
+  static const int maxPossibleRemainingResidentCredentialsCountIdx = 2;
+  static const int rpIdx = 3;
+  static const int rpIdHashIdx = 4;
+  static const int totalRPsIdx = 5;
+  static const int userIdx = 6;
+  static const int credentialIdIdx = 7;
+  static const int publicKeyIdx = 8;
+  static const int totalCredentialsIdx = 9;
+  static const int credProtectIdx = 10;
+  static const int largeBlobKeyIdx = 11;
+
   final int? existingResidentCredentialsCount;
   final int? maxPossibleRemainingResidentCredentialsCount;
   final PublicKeyCredentialRpEntity? rp;
@@ -62,21 +100,19 @@ class CredentialManagementResponse {
 
   static CredentialManagementResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
-    final rpMap = (map[credMgmtRspRpIdx] as Map?)?.cast<String, dynamic>();
-    final userMap = (map[credMgmtRspUserIdx] as Map?)?.cast<String, dynamic>();
+    final rpMap = (map[rpIdx] as Map?)?.cast<String, dynamic>();
+    final userMap = (map[userIdx] as Map?)?.cast<String, dynamic>();
     final credentialIdMap =
-        (map[credMgmtRspCredentialIdIdx] as Map?)?.cast<String, dynamic>();
-    final publicKeyMap =
-        (map[credMgmtRspPublicKeyIdx] as Map?)?.cast<int, dynamic>();
+        (map[credentialIdIdx] as Map?)?.cast<String, dynamic>();
+    final publicKeyMap = (map[publicKeyIdx] as Map?)?.cast<int, dynamic>();
     return CredentialManagementResponse(
       existingResidentCredentialsCount:
-          map[credMgmtRspExistingResidentCredentialsCountIdx] as int?,
+          map[existingResidentCredentialsCountIdx] as int?,
       maxPossibleRemainingResidentCredentialsCount:
-          map[credMgmtRspMaxPossibleRemainingResidentCredentialsCountIdx]
-              as int?,
+          map[maxPossibleRemainingResidentCredentialsCountIdx] as int?,
       rp: rpMap != null ? PublicKeyCredentialRpEntity.fromCbor(rpMap) : null,
-      rpIdHash: (map[credMgmtRspRpIdHashIdx] as List?)?.cast<int>(),
-      totalRPs: map[credMgmtRspTotalRPsIdx] as int?,
+      rpIdHash: (map[rpIdHashIdx] as List?)?.cast<int>(),
+      totalRPs: map[totalRPsIdx] as int?,
       user: userMap != null
           ? PublicKeyCredentialUserEntity.fromCbor(userMap)
           : null,
@@ -84,9 +120,54 @@ class CredentialManagementResponse {
           ? PublicKeyCredentialDescriptor.fromCbor(credentialIdMap)
           : null,
       publicKey: publicKeyMap != null ? CoseKey.parse(publicKeyMap) : null,
-      totalCredentials: map[credMgmtRspTotalCredentialsIdx] as int?,
-      credProtect: map[credMgmtRspCredProtectIdx] as int?,
-      largeBlobKey: (map[credMgmtRspLargeBlobKeyIdx] as List?)?.cast<int>(),
+      totalCredentials: map[totalCredentialsIdx] as int?,
+      credProtect: map[credProtectIdx] as int?,
+      largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
     );
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CredentialManagementResponse(');
+
+    if (existingResidentCredentialsCount != null) {
+      buffer.writeln(
+          '  existingResidentCredentialsCount: $existingResidentCredentialsCount,');
+    }
+    if (maxPossibleRemainingResidentCredentialsCount != null) {
+      buffer.writeln(
+          '  maxPossibleRemainingResidentCredentialsCount: $maxPossibleRemainingResidentCredentialsCount,');
+    }
+    if (rp != null) {
+      buffer.writeln('  rp: $rp,');
+    }
+    if (rpIdHash != null) {
+      buffer.writeln('  rpIdHash: ${hex.encode(rpIdHash!)},');
+    }
+    if (totalRPs != null) {
+      buffer.writeln('  totalRPs: $totalRPs,');
+    }
+    if (user != null) {
+      buffer.writeln('  user: $user,');
+    }
+    if (credentialId != null) {
+      buffer.writeln('  credentialId: $credentialId,');
+    }
+    if (publicKey != null) {
+      buffer.writeln('  publicKey: $publicKey,');
+    }
+    if (totalCredentials != null) {
+      buffer.writeln('  totalCredentials: $totalCredentials,');
+    }
+    if (credProtect != null) {
+      buffer.writeln('  credProtect: $credProtect,');
+    }
+    if (largeBlobKey != null) {
+      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
   }
 }

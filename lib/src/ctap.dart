@@ -5,6 +5,16 @@ class CtapResponse<T> {
   final T data;
 
   CtapResponse(this.status, this.data);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('CtapResponse(');
+    buffer.writeln('  status: $status,');
+    buffer.writeln('  data: $data');
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 abstract class CtapDevice {
@@ -145,6 +155,11 @@ class CtapError extends Error {
 
   @override
   String toString() {
-    return 'CtapError: ${status.value} (${status.name})';
+    final buffer = StringBuffer();
+    buffer.writeln('CtapError(');
+    buffer.writeln('  status: ${status.value},');
+    buffer.writeln('  name: ${status.name}');
+    buffer.write(')');
+    return buffer.toString();
   }
 }
