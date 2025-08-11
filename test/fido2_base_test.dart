@@ -1,12 +1,6 @@
 import 'package:convert/convert.dart';
 import 'package:cbor/cbor.dart';
 import 'package:fido2/fido2.dart';
-import 'package:fido2/src/ctap2/entities/authenticator_info.dart';
-import 'package:fido2/src/ctap2/entities/credential_entities.dart';
-import 'package:fido2/src/ctap2/requests/get_info.dart';
-import 'package:fido2/src/ctap2/requests/make_credential.dart';
-import 'package:fido2/src/ctap2/requests/get_assertion.dart';
-import 'package:fido2/src/ctap2/requests/client_pin.dart';
 import 'package:test/test.dart';
 
 import 'fido2_ctap.dart';

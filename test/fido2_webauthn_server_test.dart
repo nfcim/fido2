@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:cbor/cbor.dart';
-import 'package:crypto/crypto.dart';
 import 'package:fido2/src/server/base.dart';
 import 'package:fido2/src/server/config.dart';
 import 'package:fido2/src/server/entities/registration_data.dart';
+import 'package:fido2/src/server/session.dart';
 import 'package:test/test.dart';
 
 // Test vectors captured from a real session
@@ -22,31 +22,26 @@ void main() {
     final config = WebAuthnConfig(
       rpId: 'webauthn.io',
       rpName: 'Webauthn.io Test',
-      rpSecret:
-          utf8.encode('a-very-secret-key-that-is-long-enough-for-hmac-sha256'),
     );
-    final server = WebAuthnServer(config);
 
-    String createTestSessionToken(String challenge, String username) {
-      final sessionData = {
-        'challenge': challenge,
-        'username': username,
-        'expires':
-            DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-      };
-      final sessionDataJson = json.encode(sessionData);
-      final hmac = Hmac(sha256, config.rpSecret);
-      final signature = hmac.convert(utf8.encode(sessionDataJson));
-      final tokenPayload = base64Url.encode(utf8.encode(sessionDataJson));
-      final tokenSignature = base64Url.encode(signature.bytes);
-      return '$tokenPayload.$tokenSignature';
-    }
+    final sessionStore = InMemorySessionStore();
+    final server = WebAuthnServer(config, sessionStore);
 
-    test('Normal', () {
-      final sessionToken = createTestSessionToken(_testChallenge, 'inuFaith');
+    setUp(() {
+      sessionStore.clear();
+    });
 
-      final result = server.completeRegistration(
-        sessionToken,
+    test('Normal registration completion', () async {
+      const sessionId = 'test-session-id';
+      final sessionData = SessionData(
+        challenge: _testChallenge,
+        username: 'inuFaith',
+        expires: DateTime.now().add(const Duration(minutes: 5)),
+      );
+      await sessionStore.save(sessionId, sessionData);
+
+      final result = await server.completeRegistration(
+        sessionId,
         _testClientDataBase64,
         _testAttestationObjectBase64,
       );
@@ -64,28 +59,55 @@ void main() {
           equals(-8)); // Algorithm: EdDSA
     });
 
-    test('Mismatched challenge', () {
-      final sessionToken =
-          createTestSessionToken('wrong-challenge-value', 'inuFaith');
+    test('Mismatched challenge', () async {
+      const sessionId = 'test-session-id-mismatch-challenge';
+      // The session is stored with a different challenge
+      final sessionData = SessionData(
+        challenge: 'wrong-challenge-value',
+        username: 'inuFaith',
+        expires: DateTime.now().add(const Duration(minutes: 5)),
+      );
+      await sessionStore.save(sessionId, sessionData);
+
+      // But the client data contains the _testChallenge
       expect(
         () => server.completeRegistration(
-            sessionToken, _testClientDataBase64, _testAttestationObjectBase64),
+            sessionId, _testClientDataBase64, _testAttestationObjectBase64),
         throwsA(predicate((e) =>
             e is Exception && e.toString().contains('challenge mismatch'))),
       );
     });
 
-    test('Mismatched origin/rpId', () {
+    test('Mismatched origin/rpId', () async {
       final badConfig = WebAuthnConfig(
-          rpId: 'evil.com', rpName: 'Evil Corp', rpSecret: config.rpSecret);
-      final badServer = WebAuthnServer(badConfig);
-      final sessionToken = createTestSessionToken(_testChallenge, 'inuFaith');
+        rpId: 'evil.com',
+        rpName: 'Evil Corp',
+      );
+      final badServer = WebAuthnServer(badConfig, sessionStore);
+      const sessionId = 'test-session-id-mismatch-origin';
+
+      final sessionData = SessionData(
+        challenge: _testChallenge,
+        username: 'inuFaith',
+        expires: DateTime.now().add(const Duration(minutes: 5)),
+      );
+      await sessionStore.save(sessionId, sessionData);
 
       expect(
         () => badServer.completeRegistration(
-            sessionToken, _testClientDataBase64, _testAttestationObjectBase64),
+            sessionId, _testClientDataBase64, _testAttestationObjectBase64),
         throwsA(predicate(
             (e) => e is Exception && e.toString().contains('origin mismatch'))),
+      );
+    });
+
+    test('Session not found', () {
+      const sessionId = 'non-existent-session-id';
+      expect(
+        () => server.completeRegistration(
+            sessionId, _testClientDataBase64, _testAttestationObjectBase64),
+        throwsA(predicate((e) =>
+            e is Exception && e.toString().contains('Session not found'))),
       );
     });
   });

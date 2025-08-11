@@ -8,13 +8,8 @@ class RegistrationInitResponse {
   /// This is a Map representation of the PublicKeyCredentialCreationOptions object.
   final Map<String, dynamic> creationOptions;
 
-  /// A stateless session token that must be sent back to the server
-  /// along with the authenticator's response.
-  final String sessionToken;
-
   RegistrationInitResponse({
     required this.creationOptions,
-    required this.sessionToken,
   });
 }
 
