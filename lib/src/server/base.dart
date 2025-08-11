@@ -8,12 +8,13 @@ import 'package:crypto/crypto.dart';
 import 'config.dart';
 import 'entities/authenticator_data.dart';
 import 'entities/registration_data.dart';
-import 'entities/session_data.dart';
+import 'session.dart';
 
-/// A stateless FIDO2/WebAuthn server implementation.
+/// A stateful FIDO2/WebAuthn server implementation.
 class WebAuthnServer {
   final WebAuthnConfig config;
   final Random _secureRandom = Random.secure();
+  final SessionStore _sessionStore;
 
   static const List<Map<String, dynamic>> _supportedPubKeyCredParams = [
     {'type': 'public-key', 'alg': -7}, // ES256
@@ -21,7 +22,7 @@ class WebAuthnServer {
     {'type': 'public-key', 'alg': -8}, // EdDSA (Ed25519)
   ];
 
-  WebAuthnServer(this.config);
+  WebAuthnServer(this.config, this._sessionStore);
 
   /// Helper to add padding to base64url strings if missing.
   String _padBase64(String base64) {
@@ -46,66 +47,20 @@ class WebAuthnServer {
     return challenge;
   }
 
-  /// Creates a stateless, tamper-proof session token.
-  /// The token contains the challenge and username, signed with the server secret.
-  String _createStatelessSessionToken(Uint8List challenge, String username) {
-    final sessionData = {
-      'challenge': base64Url.encode(challenge),
-      'username': username,
-      'expires':
-          DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-    };
-    final sessionDataJson = json.encode(sessionData);
-    final hmac = Hmac(sha256, config.rpSecret);
-    final signature = hmac.convert(utf8.encode(sessionDataJson));
-
-    final tokenPayload = base64Url.encode(utf8.encode(sessionDataJson));
-    final tokenSignature = base64Url.encode(signature.bytes);
-
-    return '$tokenPayload.$tokenSignature';
-  }
-
-  /// Verifies the stateless session token and decodes its content.
-  /// Throws an exception if the token is invalid, tampered with, or expired.
-  StatelessSessionData _verifyStatelessSessionToken(String token) {
-    final parts = token.split('.');
-    if (parts.length != 2) {
-      throw Exception('Invalid session token format.');
-    }
-    final payloadBase64 = _padBase64(parts[0]);
-    final signatureBase64 = _padBase64(parts[1]);
-
-    final hmac = Hmac(sha256, config.rpSecret);
-    final expectedSignature = hmac.convert(base64Url.decode(payloadBase64));
-    final receivedSignature = base64Url.decode(signatureBase64);
-
-    if (expectedSignature.bytes.length != receivedSignature.length) {
-      throw Exception('Invalid signature.');
-    }
-    var mismatch = 0;
-    for (var i = 0; i < expectedSignature.bytes.length; i++) {
-      mismatch |= expectedSignature.bytes[i] ^ receivedSignature[i];
-    }
-    if (mismatch != 0) {
-      throw Exception('Invalid signature.');
-    }
-
-    final sessionDataJson = utf8.decode(base64Url.decode(payloadBase64));
-    final sessionData =
-        StatelessSessionData.fromJson(json.decode(sessionDataJson));
-
-    if (sessionData.expires.isBefore(DateTime.now())) {
-      throw Exception('Session token expired.');
-    }
-
-    return sessionData;
-  }
+  // No stateless token helpers in the stateful server.
 
   /// Initiates a new user registration ceremony.
-  RegistrationInitResponse initiateRegistration(
-      String username, String displayName) {
+  Future<RegistrationInitResponse> initiateRegistration(
+      String username, String displayName) async {
     final challenge = _generateChallenge();
-    final sessionToken = _createStatelessSessionToken(challenge, username);
+    // Create a session id and persist the challenge statefully.
+    final sessionId = base64Url.encode(_generateChallenge());
+    final sessionData = SessionData(
+      challenge: base64Url.encode(challenge),
+      username: username,
+      expires: DateTime.now().add(const Duration(minutes: 5)),
+    );
+    await _sessionStore.save(sessionId, sessionData);
 
     final options = {
       'rp': {'id': config.rpId, 'name': config.rpName},
@@ -122,7 +77,6 @@ class WebAuthnServer {
 
     return RegistrationInitResponse(
       creationOptions: options,
-      sessionToken: sessionToken,
     );
   }
 
@@ -130,12 +84,18 @@ class WebAuthnServer {
   ///
   /// Throws an exception if any part of the verification fails.
   /// Returns a [RegistrationResult] on success, which should be stored.
-  RegistrationResult completeRegistration(
-    String sessionToken,
+  Future<RegistrationResult> completeRegistration(
+    String sessionId,
     String clientDataBase64,
     String attestationObjectBase64,
-  ) {
-    final sessionData = _verifyStatelessSessionToken(sessionToken);
+  ) async {
+    final sessionData = await _sessionStore.load(sessionId);
+    if (sessionData == null) {
+      throw Exception('Session not found');
+    }
+    if (sessionData.expires.isBefore(DateTime.now())) {
+      throw Exception('Session expired');
+    }
 
     // 1. Decode and verify clientDataJSON
     final clientDataJSON =
@@ -210,6 +170,7 @@ class WebAuthnServer {
 
     // Note: The attestation statement (`attStmt`) is not verified here,
     // as we assume a simple 'none' attestation format for this implementation.
+    await _sessionStore.delete(sessionId);
 
     return RegistrationResult(
       credentialId: credentialId,
