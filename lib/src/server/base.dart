@@ -67,6 +67,7 @@ class WebAuthnServer {
     };
 
     return RegistrationInitResponse(
+      sessionId: sessionId,
       creationOptions: options,
     );
   }
