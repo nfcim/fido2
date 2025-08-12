@@ -72,7 +72,7 @@ class AuthenticatorData {
     // Helper to read a chunk of bytes and advance the offset.
     Uint8List readBytes(int length) {
       if (authDataBytes.length < offset + length) {
-        throw Exception(
+        throw FormatException(
           'Authenticator data too short. Needed $length bytes at offset $offset, but length is ${authDataBytes.length}',
         );
       }
@@ -93,7 +93,7 @@ class AuthenticatorData {
     CborMap? extensions;
 
     final hasAttestedData = (flags & 0x40) != 0;
-    final hasExtensions = (flags & 0x80) != 0;
+    final hasExtensionsData = (flags & 0x80) != 0;
 
     if (hasAttestedData) {
       final aaguid = readBytes(16);
@@ -104,51 +104,46 @@ class AuthenticatorData {
       ).getUint16(0, Endian.big);
       final credentialId = readBytes(credentialIdLength);
 
-      // The rest of the buffer is the CBOR-encoded public key and, if present, extensions.
+      // The rest of the buffer contains the CBOR-encoded public key and, if present, extensions.
       final remainingBytes = authDataBytes.sublist(offset);
       if (remainingBytes.isEmpty) {
-        throw Exception(
+        throw FormatException(
             'Authenticator data ended unexpectedly. Missing credential public key.');
       }
 
-      // cbor.decode() can return a CborList if multiple items are in the buffer,
-      // or a single CborValue if only one is present. We need to handle both cases.
-      final decodedValues = cbor.decode(remainingBytes);
-
-      final CborMap credentialPublicKey;
-      final List<CborValue> items;
-      if (decodedValues is CborList) {
-        items = decodedValues;
+      final decoded = cbor.decode(remainingBytes);
+      final List<CborValue> cborItems;
+      if (decoded is CborList) {
+        cborItems = decoded;
       } else {
-        items = [decodedValues];
+        cborItems = [decoded];
       }
 
-      if (items.isEmpty || items.first is! CborMap) {
-        throw Exception(
+      if (cborItems.isEmpty || cborItems.first is! CborMap) {
+        throw FormatException(
             'Could not parse credential public key, expected a CborMap.');
       }
-      credentialPublicKey = items.first as CborMap;
-
-      // Manually calculate how many bytes the public key consumed.
-      final pkBytes = cbor.encode(credentialPublicKey);
-      offset += pkBytes.length;
+      final credentialPublicKey = cborItems.first as CborMap;
 
       attestedCredentialData = AttestedCredentialData(
         aaguid: aaguid,
         credentialId: credentialId,
         credentialPublicKey: credentialPublicKey,
       );
-    }
 
-    if (hasExtensions) {
-      // Extensions are located after the attested credential data (if any).
-      if (authDataBytes.length > offset) {
-        final extBytes = authDataBytes.sublist(offset);
-        if (extBytes.isNotEmpty) {
-          final decodedExt = cbor.decode(extBytes);
-          if (decodedExt is CborMap) {
-            extensions = decodedExt;
-          }
+      // If extensions are also present, they are the second item in the CBOR list.
+      if (hasExtensionsData &&
+          cborItems.length > 1 &&
+          cborItems[1] is CborMap) {
+        extensions = cborItems[1] as CborMap;
+      }
+    } else if (hasExtensionsData) {
+      // Attested data is not present, but extensions are.
+      final extBytes = authDataBytes.sublist(offset);
+      if (extBytes.isNotEmpty) {
+        final decodedExt = cbor.decode(extBytes);
+        if (decodedExt is CborMap) {
+          extensions = decodedExt;
         }
       }
     }
