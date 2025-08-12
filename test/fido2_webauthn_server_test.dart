@@ -110,5 +110,44 @@ void main() {
             e is Exception && e.toString().contains('Session not found'))),
       );
     });
+
+    test('Full registration flow', () async {
+      // 1. Initiate registration
+      final initResponse =
+          await server.initiateRegistration('testuser', 'Test User');
+      final sessionId = initResponse.sessionId;
+      final challenge = initResponse.creationOptions['challenge'] as String;
+
+      final session = await sessionStore.load(sessionId);
+      expect(session, isNotNull);
+      expect(session!.challenge, equals(challenge));
+
+      // 2. Simulate client response and complete registration
+      // Build a clientDataJSON with the dynamic challenge from step 1.
+      final clientDataMap = {
+        'type': 'webauthn.create',
+        'challenge': challenge,
+        'origin': 'https://webauthn.io',
+        'crossOrigin': false,
+      };
+      final clientDataBase64 =
+          base64Url.encode(utf8.encode(json.encode(clientDataMap)));
+
+      // Reuse the static attestationObject since its rpIdHash matches the config
+      // and it doesn't contain the challenge.
+      final result = await server.completeRegistration(
+        sessionId,
+        clientDataBase64,
+        _testAttestationObjectBase64,
+      );
+
+      // 3. Verify success
+      expect(result, isA<RegistrationResult>());
+      expect(result.credentialId, isNotEmpty);
+
+      // Verify session was deleted after successful completion
+      final deletedSession = await sessionStore.load(sessionId);
+      expect(deletedSession, isNull);
+    });
   });
 }
