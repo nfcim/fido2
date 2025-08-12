@@ -26,16 +26,7 @@ class WebAuthnServer {
 
   /// Helper to add padding to base64url strings if missing.
   String _padBase64(String base64) {
-    var padded = base64;
-    switch (padded.length % 4) {
-      case 2:
-        padded += '==';
-        break;
-      case 3:
-        padded += '=';
-        break;
-    }
-    return padded;
+    return base64.padRight((base64.length + 3) & ~3, '=');
   }
 
   /// Generates a cryptographically random challenge.
