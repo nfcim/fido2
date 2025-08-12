@@ -18,7 +18,6 @@ class WebAuthnServer {
 
   static const List<Map<String, dynamic>> _supportedPubKeyCredParams = [
     {'type': 'public-key', 'alg': -7}, // ES256
-    {'type': 'public-key', 'alg': -257}, // RS256
     {'type': 'public-key', 'alg': -8}, // EdDSA (Ed25519)
   ];
 
