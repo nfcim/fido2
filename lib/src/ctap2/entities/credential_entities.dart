@@ -20,7 +20,11 @@ class PublicKeyCredentialRpEntity {
 
   @override
   String toString() {
-    return 'PublicKeyCredentialRpEntity(id: $id)';
+    final buffer = StringBuffer();
+    buffer.writeln('PublicKeyCredentialRpEntity(');
+    buffer.writeln('  id: $id');
+    buffer.write(')');
+    return buffer.toString();
   }
 }
 
@@ -53,7 +57,13 @@ class PublicKeyCredentialUserEntity {
 
   @override
   String toString() {
-    return 'PublicKeyCredentialUserEntity(id: ${hex.encode(id)}, name: $name, displayName: $displayName)';
+    final buffer = StringBuffer();
+    buffer.writeln('PublicKeyCredentialUserEntity(');
+    buffer.writeln('  id: ${hex.encode(id)},');
+    buffer.writeln('  name: $name,');
+    buffer.writeln('  displayName: $displayName');
+    buffer.write(')');
+    return buffer.toString();
   }
 }
 
@@ -86,6 +96,12 @@ class PublicKeyCredentialDescriptor {
 
   @override
   String toString() {
-    return 'PublicKeyCredentialDescriptor(type: $type, id: ${hex.encode(id)})';
+    final buffer = StringBuffer();
+    buffer.writeln('PublicKeyCredentialDescriptor(');
+    buffer.writeln('  type: $type,');
+    buffer.writeln('  id: ${hex.encode(id)},');
+    if (transports != null) buffer.writeln('  transports: $transports,');
+    buffer.write(')');
+    return buffer.toString();
   }
 }

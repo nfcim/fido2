@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
 
@@ -52,6 +53,33 @@ class GetAssertionRequest {
 
     return [Ctap2Commands.getAssertion.value] + cbor.encode(CborValue(map));
   }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('GetAssertionRequest(');
+    buffer.writeln('  rpId: $rpId,');
+    buffer.writeln('  clientDataHash: ${hex.encode(clientDataHash)},');
+
+    if (allowList != null) {
+      buffer.writeln('  allowList: $allowList,');
+    }
+    if (extensions != null) {
+      buffer.writeln('  extensions: $extensions,');
+    }
+    if (options != null) {
+      buffer.writeln('  options: $options,');
+    }
+    if (pinAuth != null) {
+      buffer.writeln('  pinAuth: ${hex.encode(pinAuth!)},');
+    }
+    if (pinProtocol != null) {
+      buffer.writeln('  pinProtocol: $pinProtocol,');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class GetAssertionResponse {
@@ -98,5 +126,30 @@ class GetAssertionResponse {
       userSelected: map[userSelectedIdx] as bool?,
       largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
     );
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('GetAssertionResponse(');
+    buffer.writeln('  credential: $credential,');
+    buffer.writeln('  authData: ${hex.encode(authData)},');
+    buffer.writeln('  signature: ${hex.encode(signature)},');
+
+    if (user != null) {
+      buffer.writeln('  user: $user,');
+    }
+    if (numberOfCredentials != null) {
+      buffer.writeln('  numberOfCredentials: $numberOfCredentials,');
+    }
+    if (userSelected != null) {
+      buffer.writeln('  userSelected: $userSelected,');
+    }
+    if (largeBlobKey != null) {
+      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
   }
 }
