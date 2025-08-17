@@ -11,7 +11,7 @@ class CtapResponse<T> {
     final buffer = StringBuffer();
     buffer.writeln('CtapResponse(');
     buffer.writeln('  status: $status,');
-    buffer.writeln('  data: $data');
+    buffer.writeln('  data: $data,');
     buffer.write(')');
     return buffer.toString();
   }
@@ -158,7 +158,7 @@ class CtapError extends Error {
     final buffer = StringBuffer();
     buffer.writeln('CtapError(');
     buffer.writeln('  status: ${status.value},');
-    buffer.writeln('  name: ${status.name}');
+    buffer.writeln('  name: ${status.name},');
     buffer.write(')');
     return buffer.toString();
   }

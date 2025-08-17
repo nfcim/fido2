@@ -23,7 +23,7 @@ class EncapsulateResult {
     final buffer = StringBuffer();
     buffer.writeln('EncapsulateResult(');
     buffer.writeln('  coseKey: $coseKey,');
-    buffer.writeln('  sharedSecret: ${hex.encode(sharedSecret)}');
+    buffer.writeln('  sharedSecret: ${hex.encode(sharedSecret)},');
     buffer.write(')');
     return buffer.toString();
   }

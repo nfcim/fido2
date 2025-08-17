@@ -47,7 +47,7 @@ sealed class CoseKey extends MapView<int, dynamic> {
     final buffer = StringBuffer();
     buffer.writeln('CoseKey(');
     buffer.writeln('  algorithm: $alg,');
-    buffer.writeln('  params: ${Map<int, dynamic>.from(this)}');
+    buffer.writeln('  params: ${Map<int, dynamic>.from(this)},');
     buffer.write(')');
     return buffer.toString();
   }
@@ -63,7 +63,7 @@ class UnsupportedKey extends CoseKey {
     final buffer = StringBuffer();
     buffer.writeln('UnsupportedKey(');
     buffer.writeln('  algorithm: $alg,');
-    buffer.writeln('  params: ${Map<int, dynamic>.from(this)}');
+    buffer.writeln('  params: ${Map<int, dynamic>.from(this)},');
     buffer.write(')');
     return buffer.toString();
   }
@@ -105,7 +105,7 @@ class ES256 extends CoseKey {
     buffer.writeln('ES256(');
     buffer.writeln('  algorithm: $algorithm,');
     buffer.writeln('  x: ${x != null ? hex.encode(x) : null},');
-    buffer.writeln('  y: ${y != null ? hex.encode(y) : null}');
+    buffer.writeln('  y: ${y != null ? hex.encode(y) : null},');
     buffer.write(')');
     return buffer.toString();
   }
@@ -147,7 +147,7 @@ class EcdhEsHkdf256 extends CoseKey {
     buffer.writeln('EcdhEsHkdf256(');
     buffer.writeln('  algorithm: $algorithm,');
     buffer.writeln('  x: ${x != null ? hex.encode(x) : null},');
-    buffer.writeln('  y: ${y != null ? hex.encode(y) : null}');
+    buffer.writeln('  y: ${y != null ? hex.encode(y) : null},');
     buffer.write(')');
     return buffer.toString();
   }

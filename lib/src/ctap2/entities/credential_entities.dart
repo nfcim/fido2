@@ -22,7 +22,7 @@ class PublicKeyCredentialRpEntity {
   String toString() {
     final buffer = StringBuffer();
     buffer.writeln('PublicKeyCredentialRpEntity(');
-    buffer.writeln('  id: $id');
+    buffer.writeln('  id: $id,');
     buffer.write(')');
     return buffer.toString();
   }
@@ -61,7 +61,7 @@ class PublicKeyCredentialUserEntity {
     buffer.writeln('PublicKeyCredentialUserEntity(');
     buffer.writeln('  id: ${hex.encode(id)},');
     buffer.writeln('  name: $name,');
-    buffer.writeln('  displayName: $displayName');
+    buffer.writeln('  displayName: $displayName,');
     buffer.write(')');
     return buffer.toString();
   }

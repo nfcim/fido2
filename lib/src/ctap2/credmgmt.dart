@@ -48,7 +48,7 @@ class CmMetadata {
     buffer.writeln(
         '  existingResidentCredentialsCount: $existingResidentCredentialsCount,');
     buffer.writeln(
-        '  maxPossibleRemainingResidentCredentialsCount: $maxPossibleRemainingResidentCredentialsCount');
+        '  maxPossibleRemainingResidentCredentialsCount: $maxPossibleRemainingResidentCredentialsCount,');
     buffer.write(')');
     return buffer.toString();
   }
