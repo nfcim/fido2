@@ -8,20 +8,18 @@ import 'package:crypto/crypto.dart';
 import 'config.dart';
 import 'entities/authenticator_data.dart';
 import 'entities/registration_data.dart';
-import 'session.dart';
 
-/// A stateful FIDO2/WebAuthn server implementation.
-class WebAuthnServer {
-  final WebAuthnConfig config;
+/// A stateless FIDO2/WebAuthn server implementation.
+class Fido2Server {
+  final Fido2Config config;
   final Random _secureRandom = Random.secure();
-  final SessionStore _sessionStore;
 
   static const List<Map<String, dynamic>> _supportedPubKeyCredParams = [
     {'type': 'public-key', 'alg': -7}, // ES256
     {'type': 'public-key', 'alg': -8}, // EdDSA (Ed25519)
   ];
 
-  WebAuthnServer(this.config, this._sessionStore);
+  Fido2Server(this.config);
 
   /// Helper to add padding to base64url strings if missing.
   String _padBase64(String base64) {
@@ -37,20 +35,11 @@ class WebAuthnServer {
     return challenge;
   }
 
-  // No stateless token helpers in the stateful server.
-
-  /// Initiates a new user registration ceremony.
-  Future<RegistrationInitResponse> initiateRegistration(
-      String username, String displayName) async {
+  /// Generates registration options for the client.
+  /// The calling server is responsible for storing the challenge.
+  Map<String, dynamic> generateRegistrationOptions(
+      String username, String displayName) {
     final challenge = _generateChallenge();
-    // Create a session id and persist the challenge statefully.
-    final sessionId = base64Url.encode(_generateChallenge());
-    final sessionData = SessionData(
-      challenge: base64Url.encode(challenge),
-      username: username,
-      expires: DateTime.now().add(const Duration(minutes: 5)),
-    );
-    await _sessionStore.save(sessionId, sessionData);
 
     final options = {
       'rp': {'id': config.rpId, 'name': config.rpName},
@@ -65,29 +54,18 @@ class WebAuthnServer {
       'attestation': 'none',
     };
 
-    return RegistrationInitResponse(
-      sessionId: sessionId,
-      creationOptions: options,
-    );
+    return options;
   }
 
-  /// Completes the registration ceremony by verifying the authenticator's response.
+  /// Verifies the authenticator's response and completes the registration.
   ///
   /// Throws an exception if any part of the verification fails.
   /// Returns a [RegistrationResult] on success, which should be stored.
-  Future<RegistrationResult> completeRegistration(
-    String sessionId,
+  RegistrationResult completeRegistration(
     String clientDataBase64,
     String attestationObjectBase64,
-  ) async {
-    final sessionData = await _sessionStore.load(sessionId);
-    if (sessionData == null) {
-      throw Exception('Session not found');
-    }
-    if (sessionData.expires.isBefore(DateTime.now())) {
-      throw Exception('Session expired');
-    }
-
+    String expectedChallenge,
+  ) {
     // 1. Decode and verify clientDataJSON
     final clientDataJSON =
         utf8.decode(base64Url.decode(_padBase64(clientDataBase64)));
@@ -96,7 +74,7 @@ class WebAuthnServer {
     if (clientData['type'] != 'webauthn.create') {
       throw Exception('Invalid client data: type is not webauthn.create');
     }
-    if (clientData['challenge'] != sessionData.challenge) {
+    if (clientData['challenge'] != expectedChallenge) {
       throw Exception('Invalid client data: challenge mismatch');
     }
 
@@ -161,7 +139,6 @@ class WebAuthnServer {
 
     // Note: The attestation statement (`attStmt`) is not verified here,
     // as we assume a simple 'none' attestation format for this implementation.
-    await _sessionStore.delete(sessionId);
 
     return RegistrationResult(
       credentialId: credentialId,
