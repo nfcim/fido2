@@ -7,11 +7,13 @@ environment:
   sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
+  asn1lib: ^1.6.5
   cbor: ^6.3.7
   convert: ^3.0.1
   crypto: ^3.0.6
   cryptography: ^2.7.0
   elliptic: ^0.3.11
+  pointycastle: ^4.0.0
   quiver: ^3.2.2
 
 dev_dependencies:
