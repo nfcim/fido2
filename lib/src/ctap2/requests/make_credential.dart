@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import 'package:convert/convert.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
 
@@ -65,6 +66,38 @@ class MakeCredentialRequest {
     }
     return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
   }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('MakeCredentialRequest(');
+    buffer.writeln('  clientDataHash: ${hex.encode(clientDataHash)},');
+    buffer.writeln('  rp: $rp,');
+    buffer.writeln('  user: $user,');
+    buffer.writeln('  pubKeyCredParams: $pubKeyCredParams,');
+
+    if (excludeList != null) {
+      buffer.writeln('  excludeList: $excludeList,');
+    }
+    if (extensions != null) {
+      buffer.writeln('  extensions: $extensions,');
+    }
+    if (options != null) {
+      buffer.writeln('  options: $options,');
+    }
+    if (pinAuth != null) {
+      buffer.writeln('  pinAuth: ${hex.encode(pinAuth!)},');
+    }
+    if (pinProtocol != null) {
+      buffer.writeln('  pinProtocol: $pinProtocol,');
+    }
+    if (enterpriseAttestation != null) {
+      buffer.writeln('  enterpriseAttestation: $enterpriseAttestation,');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
+  }
 }
 
 class MakeCredentialResponse {
@@ -97,5 +130,24 @@ class MakeCredentialResponse {
       epAtt: map[epAttIdx] as bool?,
       largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
     );
+  }
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('MakeCredentialResponse(');
+    buffer.writeln('  fmt: $fmt,');
+    buffer.writeln('  authData: ${hex.encode(authData)},');
+    buffer.writeln('  attStmt: $attStmt,');
+
+    if (epAtt != null) {
+      buffer.writeln('  epAtt: $epAtt,');
+    }
+    if (largeBlobKey != null) {
+      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
+    }
+
+    buffer.write(')');
+    return buffer.toString();
   }
 }
