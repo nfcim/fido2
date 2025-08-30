@@ -6,13 +6,13 @@ import 'package:pointycastle/export.dart' as pc;
 import 'package:asn1lib/asn1lib.dart' as asn1;
 
 import 'package:cbor/cbor.dart';
-import 'package:convert/convert.dart';
+import 'package:fido2/src/utils/serialization.dart';
 
 /// Represents a key as specified by RFC8152:
 /// [CBOR Object Signing and Encryption (COSE)](https://tools.ietf.org/html/rfc8152)
 ///
 /// Extended this class to support more COSE key types.
-sealed class CoseKey extends MapView<int, dynamic> {
+sealed class CoseKey extends MapView<int, dynamic> with JsonToStringMixin {
   // Key Objects (RFC8152 Section 7.1)
   static const int ktyIdx = 1;
   static const int algIdx = 3;
@@ -82,31 +82,18 @@ sealed class CoseKey extends MapView<int, dynamic> {
   }
 
   @override
-  String toString() {
-    final alg = this[algIdx];
-    final buffer = StringBuffer();
-    buffer.writeln('CoseKey(');
-    buffer.writeln('  algorithm: $alg,');
-    buffer.writeln('  params: ${Map<int, dynamic>.from(this)}');
-    buffer.write(')');
-    return buffer.toString();
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{};
+    forEach((key, value) {
+      map[key.toString()] = value;
+    });
+    return map;
   }
 }
 
 /// Represents a currently unsupported COSE key type
 class UnsupportedKey extends CoseKey {
   UnsupportedKey(super.coseKeyParams);
-
-  @override
-  String toString() {
-    final alg = this[CoseKey.algIdx];
-    final buffer = StringBuffer();
-    buffer.writeln('UnsupportedKey(');
-    buffer.writeln('  algorithm: $alg,');
-    buffer.writeln('  params: ${Map<int, dynamic>.from(this)}');
-    buffer.write(')');
-    return buffer.toString();
-  }
 }
 
 /// Represents a COSE key of type EdDSA (Ed25519, see RFC8152 8.2)
@@ -195,19 +182,6 @@ class ES256 extends CoseKey {
   }
 
   @override
-  String toString() {
-    final x = this[CoseKey.ec2XIdx] as List<int>?;
-    final y = this[CoseKey.ec2YIdx] as List<int>?;
-    final buffer = StringBuffer();
-    buffer.writeln('ES256(');
-    buffer.writeln('  algorithm: $algorithm,');
-    buffer.writeln('  x: ${x != null ? hex.encode(x) : null},');
-    buffer.writeln('  y: ${y != null ? hex.encode(y) : null}');
-    buffer.write(')');
-    return buffer.toString();
-  }
-
-  @override
   Future<void> verify(List<int> message, List<int> signature) async {
     final xBytes = this[CoseKey.ec2XIdx] as List<int>?;
     final yBytes = this[CoseKey.ec2YIdx] as List<int>?;
@@ -292,18 +266,5 @@ class EcdhEsHkdf256 extends CoseKey {
       CborInt(BigInt.from(CoseKey.ec2XIdx)): CborBytes(this[CoseKey.ec2XIdx]),
       CborInt(BigInt.from(CoseKey.ec2YIdx)): CborBytes(this[CoseKey.ec2YIdx]),
     });
-  }
-
-  @override
-  String toString() {
-    final x = this[CoseKey.ec2XIdx] as List<int>?;
-    final y = this[CoseKey.ec2YIdx] as List<int>?;
-    final buffer = StringBuffer();
-    buffer.writeln('EcdhEsHkdf256(');
-    buffer.writeln('  algorithm: $algorithm,');
-    buffer.writeln('  x: ${x != null ? hex.encode(x) : null},');
-    buffer.writeln('  y: ${y != null ? hex.encode(y) : null}');
-    buffer.write(')');
-    return buffer.toString();
   }
 }

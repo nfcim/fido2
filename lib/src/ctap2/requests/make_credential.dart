@@ -1,9 +1,13 @@
 import 'package:cbor/cbor.dart';
-import 'package:convert/convert.dart';
+import 'package:fido2/src/utils/serialization.dart';
+import 'package:json_annotation/json_annotation.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
 
-class MakeCredentialRequest {
+part 'make_credential.g.dart';
+
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class MakeCredentialRequest with JsonToStringMixin {
   static const int clientDataHashIdx = 1;
   static const int rpIdx = 2;
   static const int userIdx = 3;
@@ -68,39 +72,11 @@ class MakeCredentialRequest {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('MakeCredentialRequest(');
-    buffer.writeln('  clientDataHash: ${hex.encode(clientDataHash)},');
-    buffer.writeln('  rp: $rp,');
-    buffer.writeln('  user: $user,');
-    buffer.writeln('  pubKeyCredParams: $pubKeyCredParams,');
-
-    if (excludeList != null) {
-      buffer.writeln('  excludeList: $excludeList,');
-    }
-    if (extensions != null) {
-      buffer.writeln('  extensions: $extensions,');
-    }
-    if (options != null) {
-      buffer.writeln('  options: $options,');
-    }
-    if (pinAuth != null) {
-      buffer.writeln('  pinAuth: ${hex.encode(pinAuth!)},');
-    }
-    if (pinProtocol != null) {
-      buffer.writeln('  pinProtocol: $pinProtocol,');
-    }
-    if (enterpriseAttestation != null) {
-      buffer.writeln('  enterpriseAttestation: $enterpriseAttestation,');
-    }
-
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$MakeCredentialRequestToJson(this);
 }
 
-class MakeCredentialResponse {
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class MakeCredentialResponse with JsonToStringMixin {
   static const int fmtIdx = 1;
   static const int authDataIdx = 2;
   static const int attStmtIdx = 3;
@@ -133,21 +109,5 @@ class MakeCredentialResponse {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('MakeCredentialResponse(');
-    buffer.writeln('  fmt: $fmt,');
-    buffer.writeln('  authData: ${hex.encode(authData)},');
-    buffer.writeln('  attStmt: $attStmt,');
-
-    if (epAtt != null) {
-      buffer.writeln('  epAtt: $epAtt,');
-    }
-    if (largeBlobKey != null) {
-      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
-    }
-
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$MakeCredentialResponseToJson(this);
 }

@@ -1,7 +1,11 @@
 import 'package:cbor/cbor.dart';
-import 'package:convert/convert.dart';
+import 'package:fido2/src/utils/serialization.dart';
+import 'package:json_annotation/json_annotation.dart';
 
-class AuthenticatorInfo {
+part 'authenticator_info.g.dart';
+
+@JsonSerializable(createFactory: false)
+class AuthenticatorInfo with JsonToStringMixin {
   static const int versionsIdx = 1;
   static const int extensionsIdx = 2;
   static const int aaguidIdx = 3;
@@ -165,62 +169,5 @@ class AuthenticatorInfo {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('AuthenticatorInfo(');
-    buffer.writeln('  versions: $versions,');
-    buffer.writeln('  aaguid: ${hex.encode(aaguid)},');
-
-    if (extensions != null) buffer.writeln('  extensions: $extensions,');
-    if (options != null) buffer.writeln('  options: $options,');
-    if (maxMsgSize != null) buffer.writeln('  maxMsgSize: $maxMsgSize,');
-    if (pinUvAuthProtocols != null) {
-      buffer.writeln('  pinUvAuthProtocols: $pinUvAuthProtocols,');
-    }
-    if (maxCredentialCountInList != null) {
-      buffer.writeln('  maxCredentialCountInList: $maxCredentialCountInList,');
-    }
-    if (maxCredentialIdLength != null) {
-      buffer.writeln('  maxCredentialIdLength: $maxCredentialIdLength,');
-    }
-    if (transports != null) buffer.writeln('  transports: $transports,');
-    if (algorithms != null) buffer.writeln('  algorithms: $algorithms,');
-    if (maxSerializedLargeBlobArray != null) {
-      buffer.writeln(
-          '  maxSerializedLargeBlobArray: $maxSerializedLargeBlobArray,');
-    }
-    if (forcePinChange != null) {
-      buffer.writeln('  forcePinChange: $forcePinChange,');
-    }
-    if (minPinLength != null) buffer.writeln('  minPinLength: $minPinLength,');
-    if (firmwareVersion != null) {
-      buffer.writeln('  firmwareVersion: $firmwareVersion,');
-    }
-    if (maxCredBlobLength != null) {
-      buffer.writeln('  maxCredBlobLength: $maxCredBlobLength,');
-    }
-    if (maxRpIdsForSetMinPinLength != null) {
-      buffer.writeln(
-          '  maxRpIdsForSetMinPinLength: $maxRpIdsForSetMinPinLength,');
-    }
-    if (preferredPlatformUvAttempts != null) {
-      buffer.writeln(
-          '  preferredPlatformUvAttempts: $preferredPlatformUvAttempts,');
-    }
-    if (uvModality != null) buffer.writeln('  uvModality: $uvModality,');
-    if (certifications != null) {
-      buffer.writeln('  certifications: $certifications,');
-    }
-    if (remainingDiscoverableCredentials != null) {
-      buffer.writeln(
-          '  remainingDiscoverableCredentials: $remainingDiscoverableCredentials,');
-    }
-    if (vendorPrototypeConfigCommands != null) {
-      buffer.writeln(
-          '  vendorPrototypeConfigCommands: $vendorPrototypeConfigCommands,');
-    }
-
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$AuthenticatorInfoToJson(this);
 }

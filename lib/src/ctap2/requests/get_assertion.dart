@@ -1,9 +1,13 @@
 import 'package:cbor/cbor.dart';
-import 'package:convert/convert.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
+import 'package:fido2/src/utils/serialization.dart';
+import 'package:json_annotation/json_annotation.dart';
 
-class GetAssertionRequest {
+part 'get_assertion.g.dart';
+
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class GetAssertionRequest with JsonToStringMixin {
   static const int rpIdIdx = 1;
   static const int clientDataHashIdx = 2;
   static const int allowListIdx = 3;
@@ -55,34 +59,11 @@ class GetAssertionRequest {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('GetAssertionRequest(');
-    buffer.writeln('  rpId: $rpId,');
-    buffer.writeln('  clientDataHash: ${hex.encode(clientDataHash)},');
-
-    if (allowList != null) {
-      buffer.writeln('  allowList: $allowList,');
-    }
-    if (extensions != null) {
-      buffer.writeln('  extensions: $extensions,');
-    }
-    if (options != null) {
-      buffer.writeln('  options: $options,');
-    }
-    if (pinAuth != null) {
-      buffer.writeln('  pinAuth: ${hex.encode(pinAuth!)},');
-    }
-    if (pinProtocol != null) {
-      buffer.writeln('  pinProtocol: $pinProtocol,');
-    }
-
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$GetAssertionRequestToJson(this);
 }
 
-class GetAssertionResponse {
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class GetAssertionResponse with JsonToStringMixin {
   static const int credentialIdx = 1;
   static const int authDataIdx = 2;
   static const int signatureIdx = 3;
@@ -129,27 +110,5 @@ class GetAssertionResponse {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('GetAssertionResponse(');
-    buffer.writeln('  credential: $credential,');
-    buffer.writeln('  authData: ${hex.encode(authData)},');
-    buffer.writeln('  signature: ${hex.encode(signature)},');
-
-    if (user != null) {
-      buffer.writeln('  user: $user,');
-    }
-    if (numberOfCredentials != null) {
-      buffer.writeln('  numberOfCredentials: $numberOfCredentials,');
-    }
-    if (userSelected != null) {
-      buffer.writeln('  userSelected: $userSelected,');
-    }
-    if (largeBlobKey != null) {
-      buffer.writeln('  largeBlobKey: ${hex.encode(largeBlobKey!)},');
-    }
-
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$GetAssertionResponseToJson(this);
 }
