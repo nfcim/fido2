@@ -1,5 +1,10 @@
-/// Represents response from Client to Authenticator Protocol (CTAP) devices
-class CtapResponse<T> {
+import 'package:fido2/src/utils/serialization.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'ctap.g.dart';
+
+@JsonSerializable(createFactory: false, genericArgumentFactories: true)
+class CtapResponse<T> with JsonToStringMixin {
   /// status code, see [CtapStatusCode]
   final int status;
   final T data;
@@ -7,14 +12,8 @@ class CtapResponse<T> {
   CtapResponse(this.status, this.data);
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('CtapResponse(');
-    buffer.writeln('  status: $status,');
-    buffer.writeln('  data: $data');
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() =>
+      _$CtapResponseToJson(this, (t) => t as Object?);
 }
 
 abstract class CtapDevice {
@@ -142,7 +141,7 @@ enum CtapStatusCode implements Comparable<CtapStatusCode> {
 }
 
 /// Represents an error retuned by CTAP device
-class CtapError extends Error {
+class CtapError extends Error with JsonToStringMixin {
   final CtapStatusCode status;
 
   /// Create an error from [CtapStatusCode]
@@ -154,12 +153,8 @@ class CtapError extends Error {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('CtapError(');
-    buffer.writeln('  status: ${status.value},');
-    buffer.writeln('  name: ${status.name}');
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => {
+        'status': status.value,
+        'name': status.name,
+      };
 }

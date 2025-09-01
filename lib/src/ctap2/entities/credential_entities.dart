@@ -1,7 +1,11 @@
 import 'package:cbor/cbor.dart';
-import 'package:convert/convert.dart';
+import 'package:json_annotation/json_annotation.dart';
+import 'package:fido2/src/utils/serialization.dart';
 
-class PublicKeyCredentialRpEntity {
+part 'credential_entities.g.dart';
+
+@JsonSerializable(createFactory: false)
+class PublicKeyCredentialRpEntity with JsonToStringMixin {
   final String id;
 
   PublicKeyCredentialRpEntity({required this.id});
@@ -19,16 +23,11 @@ class PublicKeyCredentialRpEntity {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('PublicKeyCredentialRpEntity(');
-    buffer.writeln('  id: $id');
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$PublicKeyCredentialRpEntityToJson(this);
 }
 
-class PublicKeyCredentialUserEntity {
+@JsonSerializable(createFactory: false)
+class PublicKeyCredentialUserEntity with JsonToStringMixin {
   final List<int> id;
   final String name;
   final String displayName;
@@ -56,18 +55,11 @@ class PublicKeyCredentialUserEntity {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('PublicKeyCredentialUserEntity(');
-    buffer.writeln('  id: ${hex.encode(id)},');
-    buffer.writeln('  name: $name,');
-    buffer.writeln('  displayName: $displayName');
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$PublicKeyCredentialUserEntityToJson(this);
 }
 
-class PublicKeyCredentialDescriptor {
+@JsonSerializable(createFactory: false)
+class PublicKeyCredentialDescriptor with JsonToStringMixin {
   final String type;
   final List<int> id;
   final List<String>? transports;
@@ -95,13 +87,5 @@ class PublicKeyCredentialDescriptor {
   }
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('PublicKeyCredentialDescriptor(');
-    buffer.writeln('  type: $type,');
-    buffer.writeln('  id: ${hex.encode(id)},');
-    if (transports != null) buffer.writeln('  transports: $transports,');
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$PublicKeyCredentialDescriptorToJson(this);
 }

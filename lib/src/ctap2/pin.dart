@@ -11,22 +11,20 @@ import 'package:fido2/src/ctap2/base.dart';
 import 'package:fido2/src/ctap2/entities/authenticator_info.dart';
 import 'package:fido2/src/ctap2/requests/client_pin.dart';
 import 'package:quiver/collection.dart';
+import 'package:fido2/src/utils/serialization.dart';
+import 'package:json_annotation/json_annotation.dart';
 
-class EncapsulateResult {
+part 'pin.g.dart';
+
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class EncapsulateResult with JsonToStringMixin {
   final CoseKey coseKey;
   final List<int> sharedSecret;
 
   EncapsulateResult(this.coseKey, this.sharedSecret);
 
   @override
-  String toString() {
-    final buffer = StringBuffer();
-    buffer.writeln('EncapsulateResult(');
-    buffer.writeln('  coseKey: $coseKey,');
-    buffer.writeln('  sharedSecret: ${hex.encode(sharedSecret)}');
-    buffer.write(')');
-    return buffer.toString();
-  }
+  Map<String, dynamic> toJson() => _$EncapsulateResultToJson(this);
 }
 
 sealed class PinProtocol {

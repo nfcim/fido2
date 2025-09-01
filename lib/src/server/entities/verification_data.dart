@@ -1,7 +1,13 @@
 import 'dart:typed_data';
+import 'package:fido2/src/utils/serialization.dart';
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'verification_data.g.dart';
 
 /// The result of a successful assertion (verification).
-class VerificationResult {
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class VerificationResult with JsonToStringMixin {
   /// Whether the authenticator reported the user was present (UP flag).
   final bool userPresent;
 
@@ -20,4 +26,7 @@ class VerificationResult {
     required this.signCount,
     required this.authenticatorData,
   });
+
+  @override
+  Map<String, dynamic> toJson() => _$VerificationResultToJson(this);
 }
