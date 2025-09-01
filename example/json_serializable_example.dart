@@ -1,4 +1,6 @@
 import 'package:fido2/fido2.dart';
+import 'dart:typed_data';
+import 'package:cbor/cbor.dart';
 
 void main() {
   // Entities
@@ -138,4 +140,41 @@ void main() {
   // EncapsulateResult toJson
   final enc = EncapsulateResult(es256Key, List.filled(32, 6));
   print('EncapsulateResult.toJson: ${enc.toJson()}');
+
+  // AttestedCredentialData toJson
+  final attested = AttestedCredentialData(
+    aaguid: Uint8List.fromList(List.filled(16, 0xAA)),
+    credentialId: Uint8List.fromList([1, 2, 3, 4]),
+    credentialPublicKey: CborMap({
+      CborInt(BigInt.from(1)): CborInt(BigInt.from(2)),
+    }),
+  );
+  print('AttestedCredentialData.toJson: ${attested.toJson()}');
+
+  // RegistrationResult toJson
+  final reg = RegistrationResult(
+    credentialId: Uint8List.fromList([9, 8, 7]),
+    credentialPublicKey: CborMap({
+      CborInt(BigInt.from(1)): CborInt(BigInt.from(7)),
+    }),
+  );
+  print('RegistrationResult.toJson: ${reg.toJson()}');
+
+  // AuthenticatorData toJson
+  final authData = AuthenticatorData(
+    rpIdHash: Uint8List.fromList(List.filled(32, 0x11)),
+    flags: 0x85,
+    signCount: 123,
+    attestedCredentialData: attested,
+  );
+  print('AuthenticatorData.toJson: ${authData.toJson()}');
+
+  // VerificationResult toJson
+  final ver = VerificationResult(
+    userPresent: true,
+    userVerified: true,
+    signCount: 42,
+    authenticatorData: Uint8List.fromList([1, 2, 3, 4]),
+  );
+  print('VerificationResult.toJson: ${ver.toJson()}');
 }
