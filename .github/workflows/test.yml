@@ -7,19 +7,24 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
+    if: ${{ !contains(github.event.head_commit.message, 'ci skip') }}
     strategy:
       matrix:
         sdk: [stable, beta]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
-      - run: dart run build_runner build --delete-conflicting-outputs
-      - run: 'if ! git diff --quiet --exit-code; then echo "Generated files are out of sync. Run: dart run build_runner build --delete-conflicting-outputs" && exit 1; fi'
+      - name: Check generated files
+        run: |
+         dart run build_runner build --delete-conflicting-outputs
+         if ! git diff --quiet --exit-code; then
+           echo "Generated files are out of sync. Run: dart run build_runner build --delete-conflicting-outputs"
+           exit 1
+         fi
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze
       - run: dart test
