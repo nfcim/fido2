@@ -1,10 +1,16 @@
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
+import 'package:fido2/src/utils/serialization.dart';
+
+import 'package:json_annotation/json_annotation.dart';
+
+part 'authenticator_data.g.dart';
 
 /// Data parsed from the `attestedCredentialData` block of an `authenticatorData`
 /// buffer. This contains the credential information.
-class AttestedCredentialData {
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class AttestedCredentialData with JsonToStringMixin {
   /// The AAGUID of the authenticator.
   final Uint8List aaguid;
 
@@ -19,6 +25,9 @@ class AttestedCredentialData {
     required this.credentialId,
     required this.credentialPublicKey,
   });
+
+  @override
+  Map<String, dynamic> toJson() => _$AttestedCredentialDataToJson(this);
 }
 
 /// A structured representation of the `authenticatorData` buffer returned
@@ -26,7 +35,8 @@ class AttestedCredentialData {
 ///
 /// It provides a safe way to parse and access the different fields of the
 /// authenticator data.
-class AuthenticatorData {
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class AuthenticatorData with JsonToStringMixin {
   /// The SHA-256 hash of the RP ID.
   final Uint8List rpIdHash;
 
@@ -156,4 +166,7 @@ class AuthenticatorData {
       extensions: extensions,
     );
   }
+
+  @override
+  Map<String, dynamic> toJson() => _$AuthenticatorDataToJson(this);
 }
