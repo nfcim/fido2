@@ -19,7 +19,7 @@ jobs:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
       - run: dart run build_runner build --delete-conflicting-outputs
-      - run: 'if ! git diff --quiet --exit-code; then exit 1; fi'
+      - run: 'if ! git diff --quiet --exit-code; then echo "Generated files are out of sync. Run: dart run build_runner build --delete-conflicting-outputs" && exit 1; fi'
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze
       - run: dart test
