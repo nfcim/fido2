@@ -1,4 +1,4 @@
-## 0.0.5
+## 1.0.0
 
 - Implement FIDO2 `makeCredential` / `getAssertion` with unit tests.
 - Add stateless WebAuthn `Fido2Server` (registration / assertion flows, `rpIdHash` / `flags` / `signCount` checks, ES256 / EdDSA verification).
