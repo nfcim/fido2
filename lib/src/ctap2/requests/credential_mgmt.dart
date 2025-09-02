@@ -7,6 +7,10 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'credential_mgmt.g.dart';
 
+/// CTAP2 authenticatorCredentialManagement (0x0A) request (spec §6.8).
+///
+/// Manages discoverable credentials on the authenticator (enumerate, delete,
+/// update, etc.).
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class CredentialManagementRequest with JsonToStringMixin {
   static const int subCmdIdx = 1;
@@ -14,9 +18,16 @@ class CredentialManagementRequest with JsonToStringMixin {
   static const int pinUvAuthProtocolIdx = 3;
   static const int pinUvAuthParamIdx = 4;
 
+  /// The credential management subCommand being requested.
   final int subCommand;
+
+  /// Parameters CBOR map for the subCommand.
   final CborMap? params;
+
+  /// PIN/UV protocol version chosen by the platform.
   final int? pinUvAuthProtocol;
+
+  /// HMAC-SHA-256 (first 16 bytes) over contents using pinUvAuthToken.
   final List<int>? pinUvAuthParam;
 
   CredentialManagementRequest({
@@ -26,6 +37,7 @@ class CredentialManagementRequest with JsonToStringMixin {
     this.pinUvAuthParam,
   });
 
+  /// Encodes this request as a CBOR map and prefixes the command byte.
   List<int> encode() {
     final map = <int, dynamic>{};
     map[subCmdIdx] = subCommand;
@@ -46,6 +58,10 @@ class CredentialManagementRequest with JsonToStringMixin {
   Map<String, dynamic> toJson() => _$CredentialManagementRequestToJson(this);
 }
 
+/// CTAP2 authenticatorCredentialManagement (0x0A) response (spec §6.8).
+///
+/// Returns RP/user/credential information, counts, and key material depending
+/// on the subCommand.
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class CredentialManagementResponse with JsonToStringMixin {
   static const int existingResidentCredentialsCountIdx = 1;
@@ -60,16 +76,37 @@ class CredentialManagementResponse with JsonToStringMixin {
   static const int credProtectIdx = 10;
   static const int largeBlobKeyIdx = 11;
 
+  /// Number of existing discoverable credentials on the authenticator.
   final int? existingResidentCredentialsCount;
+
+  /// Maximum additional discoverable credentials possible.
   final int? maxPossibleRemainingResidentCredentialsCount;
+
+  /// Relying Party information.
   final PublicKeyCredentialRpEntity? rp;
+
+  /// SHA-256 hash of the RP ID.
   final List<int>? rpIdHash;
+
+  /// Total number of RPs present on the authenticator.
   final int? totalRPs;
+
+  /// User information.
   final PublicKeyCredentialUserEntity? user;
+
+  /// Credential identifier.
   final PublicKeyCredentialDescriptor? credentialId;
+
+  /// Credential public key (COSE_Key).
   final CoseKey? publicKey;
+
+  /// Total number of credentials for the RP.
   final int? totalCredentials;
+
+  /// Credential protection policy value.
   final int? credProtect;
+
+  /// Large blob encryption key.
   final List<int>? largeBlobKey;
 
   CredentialManagementResponse({
@@ -86,6 +123,7 @@ class CredentialManagementResponse with JsonToStringMixin {
     this.largeBlobKey,
   });
 
+  /// Decodes a CBOR-encoded response into [CredentialManagementResponse].
   static CredentialManagementResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     final rpMap = (map[rpIdx] as Map?)?.cast<String, dynamic>();
