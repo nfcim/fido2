@@ -6,6 +6,10 @@ import '../entities/credential_entities.dart';
 
 part 'make_credential.g.dart';
 
+/// CTAP2 authenticatorMakeCredential (0x01) request (spec §6.1).
+///
+/// Requests generation of a new credential bound to an RP and user. Several
+/// fields mirror WebAuthn makeCredential parameters.
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class MakeCredentialRequest with JsonToStringMixin {
   static const int clientDataHashIdx = 1;
@@ -19,15 +23,34 @@ class MakeCredentialRequest with JsonToStringMixin {
   static const int pinProtocolIdx = 9;
   static const int enterpriseAttestationIdx = 10;
 
+  /// Hash of serialized client data per WebAuthn.
   final List<int> clientDataHash;
+
+  /// Relying Party entity to associate with the credential.
   final PublicKeyCredentialRpEntity rp;
+
+  /// User entity to associate with the credential.
   final PublicKeyCredentialUserEntity user;
+
+  /// Preferred algorithms for credential generation (ordered, no duplicates).
   final List<Map<String, dynamic>> pubKeyCredParams;
+
+  /// Prevent duplicates by listing existing credentials for the account.
   final List<PublicKeyCredentialDescriptor>? excludeList;
+
+  /// Extension inputs to influence authenticator operation.
   final Map<String, dynamic>? extensions;
+
+  /// Additional boolean options (rk/up/uv) for operation.
   final Map<String, bool>? options;
+
+  /// Result of authenticate(pinUvAuthToken, clientDataHash), if present.
   final List<int>? pinAuth;
+
+  /// PIN/UV protocol version selected by the platform.
   final int? pinProtocol;
+
+  /// Request enterprise attestation behavior if supported.
   final bool? enterpriseAttestation;
 
   MakeCredentialRequest({
@@ -43,6 +66,7 @@ class MakeCredentialRequest with JsonToStringMixin {
     this.enterpriseAttestation,
   });
 
+  /// Encodes this request as a CBOR map and prefixes the command byte.
   List<int> encode() {
     final map = <int, dynamic>{};
     map[clientDataHashIdx] = CborBytes(clientDataHash);
@@ -75,6 +99,10 @@ class MakeCredentialRequest with JsonToStringMixin {
   Map<String, dynamic> toJson() => _$MakeCredentialRequestToJson(this);
 }
 
+/// CTAP2 authenticatorMakeCredential (0x01) response (spec §6.1).
+///
+/// Returns attestation format, authenticator data, attestation statement and
+/// optional enterprise attestation and large-blob key.
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class MakeCredentialResponse with JsonToStringMixin {
   static const int fmtIdx = 1;
@@ -83,10 +111,19 @@ class MakeCredentialResponse with JsonToStringMixin {
   static const int epAttIdx = 4;
   static const int largeBlobKeyIdx = 5;
 
+  /// Attestation statement format identifier.
   final String fmt;
+
+  /// Raw authenticator data buffer.
   final List<int> authData;
+
+  /// Attestation statement object.
   final Map<String, dynamic> attStmt;
+
+  /// Whether enterprise attestation was performed.
   final bool? epAtt;
+
+  /// Large-blob encryption key, if provided.
   final List<int>? largeBlobKey;
 
   MakeCredentialResponse({
@@ -97,6 +134,7 @@ class MakeCredentialResponse with JsonToStringMixin {
     this.largeBlobKey,
   });
 
+  /// Decodes a CBOR-encoded response into [MakeCredentialResponse].
   static MakeCredentialResponse decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     return MakeCredentialResponse(

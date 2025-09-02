@@ -4,6 +4,11 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'authenticator_info.g.dart';
 
+/// CTAP2 authenticatorGetInfo response structure (spec §6.4).
+///
+/// Represents the authenticator's capabilities and preferences reported via
+/// the `getInfo` command. Platforms should use this to tailor subsequent
+/// requests. Field meanings follow the CTAP2 specification.
 @JsonSerializable(createFactory: false)
 class AuthenticatorInfo with JsonToStringMixin {
   static const int versionsIdx = 1;
@@ -28,26 +33,68 @@ class AuthenticatorInfo with JsonToStringMixin {
   static const int remainingDiscoverableCredentialsIdx = 20;
   static const int vendorPrototypeConfigCommandsIdx = 21;
 
+  /// List of supported versions (e.g. "FIDO_2_1", "FIDO_2_0", "U2F_V2").
   final List<String> versions;
+
+  /// List of supported extensions, if any.
   final List<String>? extensions;
+
+  /// The claimed AAGUID (16 bytes).
   final List<int> aaguid;
+
+  /// Map of supported options and their boolean values.
   final Map<String, bool>? options;
+
+  /// Maximum message size supported by the authenticator.
   final int? maxMsgSize;
+
+  /// Supported PIN/UV auth protocols in order of preference.
   final List<int>? pinUvAuthProtocols;
+
+  /// Maximum number of credentials accepted in a list.
   final int? maxCredentialCountInList;
+
+  /// Maximum credential ID length.
   final int? maxCredentialIdLength;
+
+  /// Supported transports (mirrors WebAuthn `AuthenticatorTransport`).
   final List<String>? transports;
+
+  /// Supported algorithms for credential generation (most- to least-preferred).
   final List<Map<String, int>>? algorithms;
+
+  /// Maximum size in bytes of serialized large-blob array, if supported.
   final int? maxSerializedLargeBlobArray;
+
+  /// Whether a PIN change is required before certain operations.
   final bool? forcePinChange;
+
+  /// Minimum PIN length (Unicode code points) for ClientPIN.
   final int? minPinLength;
+
+  /// Firmware version for the authenticator model.
   final int? firmwareVersion;
+
+  /// Maximum `credBlob` length in bytes, if extension supported.
   final int? maxCredBlobLength;
+
+  /// Maximum number of RP IDs accepted by setMinPINLength subcommand.
   final int? maxRpIdsForSetMinPinLength;
+
+  /// Preferred number of UV attempts before fallback to PIN.
   final int? preferredPlatformUvAttempts;
+
+  /// User verification modality bit flags per FIDO Registry.
   final int? uvModality;
+
+  /// Creates an [AuthenticatorInfo] with values reported by the authenticator.
+  /// Authenticator certifications.
   final Map<String, int>? certifications;
+
+  /// Estimated number of additional discoverable credentials that can be stored.
   final int? remainingDiscoverableCredentials;
+
+  /// List of supported vendor prototype config command IDs.
   final List<int>? vendorPrototypeConfigCommands;
 
   AuthenticatorInfo({
@@ -74,6 +121,7 @@ class AuthenticatorInfo with JsonToStringMixin {
     this.vendorPrototypeConfigCommands,
   });
 
+  /// Encodes this structure to a CBOR map as defined by CTAP2 getInfo.
   List<int> encode() {
     final map = <int, dynamic>{};
     map[versionsIdx] = versions;
@@ -139,6 +187,7 @@ class AuthenticatorInfo with JsonToStringMixin {
     return cbor.encode(CborValue(map));
   }
 
+  /// Decodes a CBOR-encoded authenticatorGetInfo response into [AuthenticatorInfo].
   static AuthenticatorInfo decode(List<int> data) {
     final map = cbor.decode(data).toObject() as Map;
     return AuthenticatorInfo(
