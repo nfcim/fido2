@@ -2,18 +2,12 @@
 
 [![Test](https://github.com/nfcim/fido2/actions/workflows/test.yml/badge.svg)](https://github.com/nfcim/fido2/actions/workflows/test.yml)
 
-A pure Dart library for FIDO2/WebAuthn.
+A pure Dart library for FIDO2 / WebAuthn.
 
-- Parse and build CTAP2 commands/responses (CBOR)
+- Parse and build CTAP2 commands / responses (CBOR)
 - Interact with authenticators via CTAP2 (`ClientPin`, `CredentialManagement`)
-- Stateless WebAuthn server for registration and authentication (signature verification, rpIdHash/flags/signCount checks)
+- Stateless WebAuthn server for registration and authentication (signature verification, `rpIdHash` / `flags` / `signCount` checks)
 - COSE verification: ES256 and EdDSA (Ed25519)
-
-## Installation
-
-```bash
-dart pub add fido2
-```
 
 ## Usage — CTAP2 client
 
@@ -80,7 +74,7 @@ Notes:
 
 ## Serialization
 
-Entities/requests use `json_serializable` for `toJson` and `toString` for readable logs.
+Entities / requests use `json_serializable` for `toJson` and `toString` for readable logs.
 Special cases with manual `toJson`: `CoseKey` and `CtapError`.
 
 ## Examples
