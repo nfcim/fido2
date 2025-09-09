@@ -1,5 +1,5 @@
 /// Public API for the FIDO2 client (CTAP).
-library fido2_client;
+library;
 
 export 'src/ctap.dart';
 export 'src/cose.dart';

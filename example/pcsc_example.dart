@@ -55,8 +55,8 @@ void main() async {
     print(ctap.info.versions);
     final cp = ClientPin(ctap, pinProtocol: PinProtocolV2());
     print(await cp.getPinRetries());
-    print(await cp.changePin('123456', '1234'));
-    print(await cp.changePin('123456', '123456'));
+    await cp.changePin('123456', '1234');
+    await cp.changePin('123456', '123456');
 
     await card.disconnect(Disposition.resetCard);
   } finally {

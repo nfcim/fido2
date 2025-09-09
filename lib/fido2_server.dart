@@ -1,5 +1,5 @@
 /// Public API for the FIDO2 server (WebAuthn).
-library fido2_server;
+library;
 
 export 'src/server/base.dart';
 export 'src/server/config.dart';
