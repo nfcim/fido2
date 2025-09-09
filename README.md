@@ -1,5 +1,6 @@
 # fido2 for Dart
 
+[![pub version](https://img.shields.io/pub/v/fido2)](https://pub.dev/packages/fido2)
 [![Test](https://github.com/nfcim/fido2/actions/workflows/test.yml/badge.svg)](https://github.com/nfcim/fido2/actions/workflows/test.yml)
 
 A pure Dart library for FIDO2 / WebAuthn.
