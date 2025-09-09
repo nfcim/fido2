@@ -39,33 +39,38 @@ class PublicKeyCredentialUserEntity with JsonToStringMixin {
   final List<int> id;
 
   /// Machine-readable account name (not for auth decisions).
-  final String name;
+  final String? name;
 
   /// Human-palatable display name. May be empty.
-  final String displayName;
+  final String? displayName;
 
   PublicKeyCredentialUserEntity({
     required this.id,
-    required this.name,
-    required this.displayName,
+    this.name,
+    this.displayName,
   });
 
   /// Parses from a CBOR map as used in CTAP requests.
   factory PublicKeyCredentialUserEntity.fromCbor(Map<dynamic, dynamic> cbor) {
     return PublicKeyCredentialUserEntity(
       id: (cbor['id'] as List).cast<int>(),
-      name: cbor['name'] as String,
-      displayName: cbor['displayName'] as String,
+      name: cbor['name'] as String?,
+      displayName: cbor['displayName'] as String?,
     );
   }
 
   /// Serializes this user entity to a CBOR map for CTAP.
   CborValue toCbor() {
-    return CborValue({
+    final map = <String, dynamic>{
       'id': CborBytes(id),
-      'name': name,
-      'displayName': displayName,
-    });
+    };
+    if (name != null) {
+      map['name'] = name;
+    }
+    if (displayName != null) {
+      map['displayName'] = displayName;
+    }
+    return CborValue(map);
   }
 
   @override
