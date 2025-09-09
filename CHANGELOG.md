@@ -1,3 +1,7 @@
+## 1.1.0
+
+- Make `name` and `displayName` optional in `PublicKeyCredentialUserEntity`
+
 ## 1.0.0
 
 > And we're out of beta. We're releasing on time. -- Still Alive by GLaDOS
