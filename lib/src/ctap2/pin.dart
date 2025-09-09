@@ -189,7 +189,7 @@ class ClientPin {
   final Ctap2 _ctap;
   late final PinProtocol _pinProtocol;
 
-  get pinProtocolVersion => _pinProtocol.version;
+  int get pinProtocolVersion => _pinProtocol.version;
 
   ClientPin(this._ctap, {PinProtocol? pinProtocol}) {
     if (pinProtocol != null) {
@@ -285,7 +285,7 @@ class ClientPin {
   /// Set the [pin] of the authenticator.
   ///
   ///  This only works when no PIN is set. To change the PIN when set, use changePin.
-  setPin(String pin) async {
+  Future<void> setPin(String pin) async {
     if (!ClientPin.isSupported(_ctap.info)) {
       throw Exception('setPin is not supported.');
     }
@@ -308,7 +308,7 @@ class ClientPin {
 
   /// Change the PIN of the authenticator.
   /// This only works when a PIN is already set. If no PIN is set, use setPin.
-  changePin(String oldPin, String newPin) async {
+  Future<void> changePin(String oldPin, String newPin) async {
     if (!ClientPin.isSupported(_ctap.info)) {
       throw Exception('changePin is not supported.');
     }
