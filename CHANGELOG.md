@@ -1,3 +1,8 @@
+## 1.2.0
+
+- Add the metadata-only extension for credential enumeration, including
+  standard-response fallback.
+
 ## 1.1.0
 
 - Make `name` and `displayName` optional in `PublicKeyCredentialUserEntity`
