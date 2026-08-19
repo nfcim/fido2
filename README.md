@@ -31,7 +31,7 @@ Future<void> demo(CtapDevice device) async {
 More end-to-end CTAP examples are in [`example/pcsc_example.dart`](example/pcsc_example.dart).
 
 Credential management also supports the
-[metadata-only extension](docs/metadata-only-extension.md) for efficiently
+[metadata-only extension](doc/metadata-only-extension.md) for efficiently
 listing credentials without transferring complete public keys.
 
 ## Usage — WebAuthn server
