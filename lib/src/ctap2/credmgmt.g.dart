@@ -29,3 +29,16 @@ Map<String, dynamic> _$CmCredentialToJson(CmCredential instance) =>
       'credProtect': instance.credProtect,
       'largeBlobKey': instance.largeBlobKey,
     };
+
+Map<String, dynamic> _$CmCredentialMetadataToJson(
+        CmCredentialMetadata instance) =>
+    <String, dynamic>{
+      'user': instance.user.toJson(),
+      'credentialId': instance.credentialId.toJson(),
+      'coseAlgorithm': instance.coseAlgorithm,
+      'metadataOnly': instance.metadataOnly,
+      'publicKey': instance.publicKey?.toJson(),
+      'totalCredentials': instance.totalCredentials,
+      'credProtect': instance.credProtect,
+      'largeBlobKey': instance.largeBlobKey,
+    };

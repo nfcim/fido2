@@ -31,4 +31,5 @@ Map<String, dynamic> _$CredentialManagementResponseToJson(
       'totalCredentials': instance.totalCredentials,
       'credProtect': instance.credProtect,
       'largeBlobKey': instance.largeBlobKey,
+      'coseAlgorithm': instance.coseAlgorithm,
     };

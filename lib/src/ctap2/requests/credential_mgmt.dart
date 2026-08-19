@@ -75,6 +75,7 @@ class CredentialManagementResponse with JsonToStringMixin {
   static const int totalCredentialsIdx = 9;
   static const int credProtectIdx = 10;
   static const int largeBlobKeyIdx = 11;
+  static const int coseAlgorithmIdx = 0x80;
 
   /// Number of existing discoverable credentials on the authenticator.
   final int? existingResidentCredentialsCount;
@@ -109,6 +110,9 @@ class CredentialManagementResponse with JsonToStringMixin {
   /// Large blob encryption key.
   final List<int>? largeBlobKey;
 
+  /// COSE algorithm ID returned by the metadata-only extension.
+  final int? coseAlgorithm;
+
   CredentialManagementResponse({
     this.existingResidentCredentialsCount,
     this.maxPossibleRemainingResidentCredentialsCount,
@@ -121,6 +125,7 @@ class CredentialManagementResponse with JsonToStringMixin {
     this.totalCredentials,
     this.credProtect,
     this.largeBlobKey,
+    this.coseAlgorithm,
   });
 
   /// Decodes a CBOR-encoded response into [CredentialManagementResponse].
@@ -128,8 +133,8 @@ class CredentialManagementResponse with JsonToStringMixin {
     final map = cbor.decode(data).toObject() as Map;
     final rpMap = (map[rpIdx] as Map?)?.cast<String, dynamic>();
     final userMap = (map[userIdx] as Map?)?.cast<String, dynamic>();
-    final credentialIdMap =
-        (map[credentialIdIdx] as Map?)?.cast<String, dynamic>();
+    final credentialIdMap = (map[credentialIdIdx] as Map?)
+        ?.cast<String, dynamic>();
     final publicKeyMap = (map[publicKeyIdx] as Map?)?.cast<int, dynamic>();
     return CredentialManagementResponse(
       existingResidentCredentialsCount:
@@ -149,6 +154,7 @@ class CredentialManagementResponse with JsonToStringMixin {
       totalCredentials: map[totalCredentialsIdx] as int?,
       credProtect: map[credProtectIdx] as int?,
       largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
+      coseAlgorithm: map[coseAlgorithmIdx] as int?,
     );
   }
 

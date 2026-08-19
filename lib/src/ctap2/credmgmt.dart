@@ -28,7 +28,8 @@ enum CredentialManagementSubCommand {
 enum CredentialManagementSubCommandParams {
   rpIdHash(0x01),
   credentialId(0x02),
-  user(0x03);
+  user(0x03),
+  metadataOnly(0x80);
 
   const CredentialManagementSubCommandParams(this.value);
 
@@ -55,11 +56,7 @@ class CmRp with JsonToStringMixin {
   final List<int> rpIdHash;
   final int? totalRPs;
 
-  CmRp({
-    required this.rp,
-    required this.rpIdHash,
-    this.totalRPs,
-  });
+  CmRp({required this.rp, required this.rpIdHash, this.totalRPs});
 
   @override
   Map<String, dynamic> toJson() => _$CmRpToJson(this);
@@ -87,6 +84,37 @@ class CmCredential with JsonToStringMixin {
   Map<String, dynamic> toJson() => _$CmCredentialToJson(this);
 }
 
+/// Credential fields returned by metadata-only enumeration.
+///
+/// Authenticators that do not support the extension may still return a
+/// standard [publicKey]. In that case [metadataOnly] is false and
+/// [coseAlgorithm] is read from the COSE key.
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class CmCredentialMetadata with JsonToStringMixin {
+  final PublicKeyCredentialUserEntity user;
+  final PublicKeyCredentialDescriptor credentialId;
+  final int coseAlgorithm;
+  final bool metadataOnly;
+  final CoseKey? publicKey;
+  final int? totalCredentials;
+  final int credProtect;
+  final List<int>? largeBlobKey;
+
+  CmCredentialMetadata({
+    required this.user,
+    required this.credentialId,
+    required this.coseAlgorithm,
+    required this.metadataOnly,
+    this.publicKey,
+    this.totalCredentials,
+    required this.credProtect,
+    this.largeBlobKey,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => _$CmCredentialMetadataToJson(this);
+}
+
 class CredentialManagement {
   final Ctap2 _ctap;
   final PinProtocol _pinProtocol;
@@ -95,7 +123,8 @@ class CredentialManagement {
   CredentialManagement(this._ctap, this._pinProtocol, this._pinToken) {
     if (!isSupported(_ctap.info)) {
       throw UnsupportedError(
-          'The authenticator does not support CredentialManagement command.');
+        'The authenticator does not support CredentialManagement command.',
+      );
     }
   }
 
@@ -105,8 +134,9 @@ class CredentialManagement {
   }
 
   Future<CmMetadata> getMetadata() async {
-    final resp =
-        await _invoke(CredentialManagementSubCommand.getCredsMetadata.value);
+    final resp = await _invoke(
+      CredentialManagementSubCommand.getCredsMetadata.value,
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
@@ -119,8 +149,9 @@ class CredentialManagement {
   }
 
   Future<CmRp> enumerateRpsBegin() async {
-    final resp =
-        await _invoke(CredentialManagementSubCommand.enumerateRpsBegin.value);
+    final resp = await _invoke(
+      CredentialManagementSubCommand.enumerateRpsBegin.value,
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
@@ -133,15 +164,13 @@ class CredentialManagement {
 
   Future<CmRp> enumerateRpsGetNextRp() async {
     final resp = await _invoke(
-        CredentialManagementSubCommand.enumerateRpsGetNextRp.value,
-        auth: false);
+      CredentialManagementSubCommand.enumerateRpsGetNextRp.value,
+      auth: false,
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
-    return CmRp(
-      rp: resp.data!.rp!,
-      rpIdHash: resp.data!.rpIdHash!,
-    );
+    return CmRp(rp: resp.data!.rp!, rpIdHash: resp.data!.rpIdHash!);
   }
 
   Future<List<CmRp>> enumerateRPs() async {
@@ -158,11 +187,13 @@ class CredentialManagement {
 
   Future<CmCredential> enumerateCredentialsBegin(List<int> rpIdHash) async {
     final resp = await _invoke(
-        CredentialManagementSubCommand.enumerateCredentialsBegin.value,
-        params: {
-          CredentialManagementSubCommandParams.rpIdHash.value:
-              CborBytes(rpIdHash)
-        });
+      CredentialManagementSubCommand.enumerateCredentialsBegin.value,
+      params: {
+        CredentialManagementSubCommandParams.rpIdHash.value: CborBytes(
+          rpIdHash,
+        ),
+      },
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
@@ -178,9 +209,11 @@ class CredentialManagement {
 
   Future<CmCredential> enumerateCredentialsGetNextCredential() async {
     final resp = await _invoke(
-        CredentialManagementSubCommand
-            .enumerateCredentialsGetNextCredential.value,
-        auth: false);
+      CredentialManagementSubCommand
+          .enumerateCredentialsGetNextCredential
+          .value,
+      auth: false,
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
@@ -205,38 +238,127 @@ class CredentialManagement {
     return credentials;
   }
 
+  /// Enumerates credentials without requesting their full public keys.
+  ///
+  /// The Begin request includes the extension's private `0x80: true` parameter.
+  /// GetNext requests contain no subCommandParams and inherit the mode from
+  /// Begin. A standard response containing `publicKey` is accepted as a
+  /// fallback for authenticators that do not support the extension.
+  Future<List<CmCredentialMetadata>> enumerateCredentialsMetadataOnly(
+    List<int> rpIdHash,
+  ) async {
+    final credentials = <CmCredentialMetadata>[];
+    var credential = await _enumerateCredentialsMetadataOnlyBegin(rpIdHash);
+    final totalCredentials = credential.totalCredentials!;
+    credentials.add(credential);
+    while (totalCredentials > credentials.length) {
+      credential = await _enumerateCredentialsMetadataOnlyGetNextCredential();
+      credentials.add(credential);
+    }
+    return credentials;
+  }
+
+  Future<CmCredentialMetadata> _enumerateCredentialsMetadataOnlyBegin(
+    List<int> rpIdHash,
+  ) async {
+    final resp = await _invoke(
+      CredentialManagementSubCommand.enumerateCredentialsBegin.value,
+      params: {
+        CredentialManagementSubCommandParams.rpIdHash.value: CborBytes(
+          rpIdHash,
+        ),
+        CredentialManagementSubCommandParams.metadataOnly.value: true,
+      },
+    );
+    if (resp.status != 0) {
+      throw CtapError.fromCode(resp.status);
+    }
+    return _credentialMetadataFromResponse(resp.data!, includeTotal: true);
+  }
+
+  Future<CmCredentialMetadata>
+  _enumerateCredentialsMetadataOnlyGetNextCredential() async {
+    final resp = await _invoke(
+      CredentialManagementSubCommand
+          .enumerateCredentialsGetNextCredential
+          .value,
+      auth: false,
+    );
+    if (resp.status != 0) {
+      throw CtapError.fromCode(resp.status);
+    }
+    return _credentialMetadataFromResponse(resp.data!);
+  }
+
+  CmCredentialMetadata _credentialMetadataFromResponse(
+    CredentialManagementResponse response, {
+    bool includeTotal = false,
+  }) {
+    final publicKey = response.publicKey;
+    final metadataOnly = publicKey == null && response.coseAlgorithm != null;
+    final coseAlgorithm =
+        publicKey?[CoseKey.algIdx] as int? ??
+        (metadataOnly ? response.coseAlgorithm : null);
+    if (coseAlgorithm == null) {
+      throw const FormatException(
+        'Credential response has neither a public key nor a COSE algorithm.',
+      );
+    }
+    return CmCredentialMetadata(
+      user: response.user!,
+      credentialId: response.credentialId!,
+      coseAlgorithm: coseAlgorithm,
+      metadataOnly: metadataOnly,
+      publicKey: publicKey,
+      totalCredentials: includeTotal ? response.totalCredentials! : null,
+      credProtect: response.credProtect!,
+      largeBlobKey: response.largeBlobKey,
+    );
+  }
+
   Future<void> deleteCredential(
-      PublicKeyCredentialDescriptor credentialId) async {
+    PublicKeyCredentialDescriptor credentialId,
+  ) async {
     final resp = await _invoke(
-        CredentialManagementSubCommand.deleteCredential.value,
-        params: {
-          CredentialManagementSubCommandParams.credentialId.value:
-              credentialId.toCbor()
-        });
+      CredentialManagementSubCommand.deleteCredential.value,
+      params: {
+        CredentialManagementSubCommandParams.credentialId.value: credentialId
+            .toCbor(),
+      },
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
   }
 
-  Future<void> updateUserInformation(PublicKeyCredentialDescriptor credentialId,
-      PublicKeyCredentialUserEntity user) async {
+  Future<void> updateUserInformation(
+    PublicKeyCredentialDescriptor credentialId,
+    PublicKeyCredentialUserEntity user,
+  ) async {
     final resp = await _invoke(
-        CredentialManagementSubCommand.updateUserInformation.value,
-        params: {
-          CredentialManagementSubCommandParams.credentialId.value:
-              credentialId.toCbor(),
-          CredentialManagementSubCommandParams.user.value: user.toCbor()
-        });
+      CredentialManagementSubCommand.updateUserInformation.value,
+      params: {
+        CredentialManagementSubCommandParams.credentialId.value: credentialId
+            .toCbor(),
+        CredentialManagementSubCommandParams.user.value: user.toCbor(),
+      },
+    );
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
   }
 
-  Future<CtapResponse<CredentialManagementResponse?>> _invoke(int subCommand,
-      {Map<int, dynamic>? params, bool auth = true}) async {
+  Future<CtapResponse<CredentialManagementResponse?>> _invoke(
+    int subCommand, {
+    Map<int, dynamic>? params,
+    bool auth = true,
+  }) async {
     CborMap? paramsMap;
-    var entries = params?.entries
-        .map((e) => MapEntry(CborSmallInt(e.key), CborValue(e.value)));
+    final sortedParams = params?.entries.toList()
+      ?..sort((a, b) => a.key.compareTo(b.key));
+    var entries = sortedParams?.map(
+      (e) => MapEntry(CborSmallInt(e.key), CborValue(e.value)),
+    );
     if (entries != null) {
       paramsMap = CborMap.fromEntries(entries);
     }
@@ -249,11 +371,13 @@ class CredentialManagement {
       }
       pinUvAuthParam = await _pinProtocol.authenticate(_pinToken, msg);
     }
-    return await _ctap.credentialManagement(CredentialManagementRequest(
-      subCommand: subCommand,
-      params: paramsMap,
-      pinUvAuthProtocol: _pinProtocol.version,
-      pinUvAuthParam: pinUvAuthParam,
-    ));
+    return await _ctap.credentialManagement(
+      CredentialManagementRequest(
+        subCommand: subCommand,
+        params: paramsMap,
+        pinUvAuthProtocol: _pinProtocol.version,
+        pinUvAuthParam: pinUvAuthParam,
+      ),
+    );
   }
 }
