@@ -133,8 +133,8 @@ class CredentialManagementResponse with JsonToStringMixin {
     final map = cbor.decode(data).toObject() as Map;
     final rpMap = (map[rpIdx] as Map?)?.cast<String, dynamic>();
     final userMap = (map[userIdx] as Map?)?.cast<String, dynamic>();
-    final credentialIdMap = (map[credentialIdIdx] as Map?)
-        ?.cast<String, dynamic>();
+    final credentialIdMap =
+        (map[credentialIdIdx] as Map?)?.cast<String, dynamic>();
     final publicKeyMap = (map[publicKeyIdx] as Map?)?.cast<int, dynamic>();
     return CredentialManagementResponse(
       existingResidentCredentialsCount:
