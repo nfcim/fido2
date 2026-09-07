@@ -52,6 +52,7 @@ jobs:
           name: docs-${{ matrix.os }}-${{ matrix.sdk }}
           path: doc/api/
       - name: Evaluate score with pana
+        if: runner.os == 'Linux' && matrix.sdk == 'stable'
         run: |
           dart pub global activate pana
           dart pub global run pana .
