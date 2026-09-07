@@ -228,7 +228,7 @@ class CredentialManagement {
       if (paramsMap != null) {
         msg.addAll(cbor.encode(paramsMap));
       }
-      pinUvAuthParam = await _pinProtocol.authenticate(_pinToken, msg);
+      pinUvAuthParam = await _pinProtocol.authenticateParam(_pinToken, msg);
     }
     return await _ctap.credentialManagement(CredentialManagementRequest(
       subCommand: subCommand,

@@ -17,9 +17,10 @@ void main() {
       var info = Ctap2.parseGetInfoResponse(response);
       expect(info.versions, equals(['U2F_V2', 'FIDO_2_0', 'FIDO_2_1']));
       expect(info.options, contains('rk'));
+      expect(info.algorithms!.first, {'alg': -7, 'type': 'public-key'});
     });
 
-    test('With Device', () async {
+    test('refresh info through mock transport', () async {
       MockDevice device = MockDevice();
       Ctap2 ctap2 = await Ctap2.create(device);
       CtapResponse resp = await ctap2.refreshInfo();
@@ -29,14 +30,14 @@ void main() {
   });
 
   group('ClientPin', () {
-    test('Request1', () {
+    test('encode getKeyAgreement request', () {
       var request = Ctap2.makeClientPinRequest(ClientPinRequest(
           subCommand: ClientPinSubCommand.getKeyAgreement.value,
           pinUvAuthProtocol: 2));
       expect(request, equals(hex.decode('06A201020202')));
     });
 
-    test('Request2', () {
+    test('encode setPin request', () {
       var request = Ctap2.makeClientPinRequest(ClientPinRequest(
         subCommand: ClientPinSubCommand.setPin.value,
         pinUvAuthProtocol: 2,
@@ -56,7 +57,7 @@ void main() {
               '06A50102020303A5010203381820012158209950CCD8C524DBAAB6D5ED7E4256B72A647920445DCA51DA5F1B2A6AEB9AAB1822582080CC342ABC60C6FD1E8101CB3AA1D34B43CAFA6C3CA5403D70DEC1C72EC637FD0458209941B629D9BAB9C8C578D5E7A3AE6201B7A2F90F02B238AA2674F4A976C17FF305585075E69079A080945600397CC32ABE3B5CFD61C1BBBAD4CE71396EBB64D51D0198CC9D6FF8EBD14A6C9A134BE717CEBFB1CB25815B3AD0080DCC7414D8604DF1729E89EA54B1277DC701077C6ED5B8512A')));
     });
 
-    test('Response1', () {
+    test('decode keyAgreement response', () {
       var response = hex.decode(
           'A101A50102033818200121582064E75C1E36EF6C3C17F609014D96D048BEB6793CD34823358E44A599B4DD2291225820235BD52FAEB2A3599F10D38EFB58E65BE58AE67AF118BF1BC528FA4B090EE763');
       var clientPinResponse = Ctap2.parseClientPinResponse(response);

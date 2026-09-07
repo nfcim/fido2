@@ -9,3 +9,6 @@ pubspec.lock
 *.iml
 .idea
 doc/
+rust/target/
+web/pkg/
+build/

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:convert/convert.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:elliptic/ecdh.dart';
@@ -6,8 +7,10 @@ import 'package:fido2/fido2.dart';
 import 'package:test/test.dart';
 
 import 'fido2_ctap.dart';
+import 'support.dart';
 
 void main() {
+  setUpAll(initializeCrypto);
   group('PinProtocol V1', () {
     test('encapsulate', () async {
       final ec = getP256();
@@ -68,7 +71,61 @@ void main() {
     });
   });
 
-  group('PinProtocol V2', () {});
+  group('PinProtocol V2', () {
+    final protocol = PinProtocolV2();
+    test('ECDH and both HKDF keys match independent Dart implementation',
+        () async {
+      final ec = getP256();
+      final private = ec.generatePrivateKey();
+      final public = hex.decode(private.publicKey.toHex().substring(2));
+      final result = await protocol.encapsulate(EcdhEsHkdf256.fromPublicKey(
+          public.sublist(0, 32), public.sublist(32)));
+      final secret = computeSecret(
+          private,
+          ec.hexToPublicKey(
+              '04${hex.encode(result.coseKey[-2] + result.coseKey[-3])}'));
+      final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
+      final expected = <int>[];
+      for (final label in ['CTAP2 HMAC key', 'CTAP2 AES key']) {
+        final key = await hkdf.deriveKey(
+            secretKey: SecretKeyData(secret),
+            nonce: List.filled(32, 0),
+            info: ascii.encode(label));
+        expected.addAll(key.bytes);
+      }
+      expect(result.sharedSecret, expected);
+    });
+    test('random IV, AES, HMAC, wire truncation and invalid lengths', () async {
+      final key = List.generate(64, (i) => i);
+      final plain = List<int>.filled(32, 0)..[0] = 42;
+      final encrypted = await protocol.encrypt(key, plain);
+      expect(encrypted, hasLength(48));
+      expect(await protocol.decrypt(key, encrypted), plain);
+      final reference = AesCbc.with256bits(
+          macAlgorithm: MacAlgorithm.empty,
+          paddingAlgorithm: PaddingAlgorithm.zero);
+      expect(
+          await reference.decrypt(
+              SecretBox(encrypted.sublist(16),
+                  nonce: encrypted.sublist(0, 16), mac: Mac.empty),
+              secretKey: SecretKeyData(key.sublist(32))),
+          plain);
+      final expected = await Hmac.sha256()
+          .calculateMac(plain, secretKey: SecretKeyData(key.sublist(0, 32)));
+      expect(await protocol.authenticate(key, plain), expected.bytes);
+      expect(await protocol.verify(key, plain, expected.bytes), isTrue);
+      expect(await protocol.verify(key, plain, expected.bytes.sublist(1)),
+          isFalse);
+      expect(await protocol.authenticateParam(key, plain), hasLength(32));
+      expect(await PinProtocolV1().authenticateParam(key.sublist(0, 32), plain),
+          hasLength(16));
+      await expectLater(
+          protocol.encrypt(key.sublist(1), plain), throwsArgumentError);
+      await expectLater(protocol.decrypt(key, [1]), throwsArgumentError);
+      await expectLater(
+          protocol.encrypt(key, [1]), throwsA(isA<CryptoException>()));
+    });
+  });
 
   group('ClientPin', () {
     test('Constructor', () async {

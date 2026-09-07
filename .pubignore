@@ -1,0 +1,16 @@
+.dart_tool/
+.git/
+.github/
+.idea/
+*.iml
+dart_test.yaml
+build/
+doc/
+rust/target/
+web/pkg/
+test/
+tool/import_vectors.py
+tool/embed_fixtures.py
+tool/test.dart
+rust/tests/
+rust/examples/

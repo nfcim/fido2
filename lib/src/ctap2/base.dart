@@ -2,6 +2,25 @@ import 'package:cbor/cbor.dart';
 import 'package:convert/convert.dart';
 import 'package:fido2/src/cose.dart';
 import 'package:fido2/src/ctap.dart';
+import '../strict_cbor.dart';
+
+T? _field<T extends CborValue>(CborMap map, Object label,
+    {bool required = false}) {
+  final value = map[CborValue(label)];
+  if (value == null && !required) return null;
+  if (value is! T || value.tags.isNotEmpty) {
+    throw FormatException('Invalid CTAP field $label: expected $T');
+  }
+  return value;
+}
+
+CborMap _responseMap(List<int> data) {
+  final value = decodeStrictCbor(data);
+  if (value is! CborMap || value.tags.isNotEmpty) {
+    throw const FormatException('Expected untagged CTAP response map');
+  }
+  return value;
+}
 
 enum Ctap2Commands {
   makeCredential(0x01),
@@ -88,7 +107,7 @@ class AuthenticatorInfo {
   final int? maxCredentialCountInList;
   final int? maxCredentialIdLength;
   final List<String>? transports;
-  final List<Map<String, int>>? algorithms;
+  final List<Map<String, dynamic>>? algorithms;
   final int? maxSerializedLargeBlobArray;
   final bool? forcePinChange;
   final int? minPinLength;
@@ -209,11 +228,13 @@ class CredentialManagementResponse {
 class Ctap2 {
   late final AuthenticatorInfo _info;
   final CtapDevice device;
+  final CoseConfiguration? coseConfiguration;
 
-  Ctap2._create(this.device);
+  Ctap2._create(this.device, this.coseConfiguration);
 
-  static Future<Ctap2> create(CtapDevice device) async {
-    final ctap2 = Ctap2._create(device);
+  static Future<Ctap2> create(CtapDevice device,
+      {CoseConfiguration? coseConfiguration}) async {
+    final ctap2 = Ctap2._create(device, coseConfiguration);
     final res = await ctap2.refreshInfo();
     if (res.status != 0) {
       throw Exception('GetInfo failed.');
@@ -242,8 +263,12 @@ class Ctap2 {
       CredentialManagementRequest request) async {
     final req = makeCredentialManagementRequest(request);
     final res = await device.transceive(req);
-    return CtapResponse(res.status,
-        res.data.isEmpty ? null : parseCredentialManagementResponse(res.data));
+    return CtapResponse(
+        res.status,
+        res.data.isEmpty
+            ? null
+            : parseCredentialManagementResponse(res.data,
+                configuration: coseConfiguration));
   }
 
   Future<CtapResponse> reset() async {
@@ -259,7 +284,7 @@ class Ctap2 {
 
   /// Parse the response from the authenticator.
   static AuthenticatorInfo parseGetInfoResponse(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
+    final map = _responseMap(data).toObject() as Map;
     return AuthenticatorInfo(
       versions: (map[1] as List).cast<String>(),
       extensions: (map[2] as List?)?.cast<String>(),
@@ -270,7 +295,9 @@ class Ctap2 {
       maxCredentialCountInList: map[7] as int?,
       maxCredentialIdLength: map[8] as int?,
       transports: (map[9] as List?)?.cast<String>(),
-      algorithms: (map[10] as List?)?.cast<Map<String, int>>(),
+      algorithms: (map[10] as List?)
+          ?.map((entry) => Map<String, dynamic>.from(entry as Map))
+          .toList(),
       maxSerializedLargeBlobArray: map[11] as int?,
       forcePinChange: map[12] as bool?,
       minPinLength: map[13] as int?,
@@ -315,15 +342,15 @@ class Ctap2 {
 
   /// Parse the response from clientPin.
   static ClientPinResponse parseClientPinResponse(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
-    final keyAgreementMap = (map[1] as Map?)?.cast<int, dynamic>();
+    final encoded = _responseMap(data);
+    final keyAgreementMap = _field<CborMap>(encoded, 1);
     return ClientPinResponse(
       keyAgreement:
-          keyAgreementMap != null ? CoseKey.parse(keyAgreementMap) : null,
-      pinUvAuthToken: (map[2] as List?)?.cast<int>(),
-      pinRetries: map[3] as int?,
-      powerCycleState: map[4] as bool?,
-      uvRetries: map[5] as int?,
+          keyAgreementMap != null ? CoseKey.fromCborMap(keyAgreementMap) : null,
+      pinUvAuthToken: _field<CborBytes>(encoded, 2)?.bytes,
+      pinRetries: _field<CborInt>(encoded, 3)?.toInt(),
+      powerCycleState: _field<CborBool>(encoded, 4)?.toObject() as bool?,
+      uvRetries: _field<CborInt>(encoded, 5)?.toInt(),
     );
   }
 
@@ -347,37 +374,47 @@ class Ctap2 {
 
   /// Parse the response from credentialManagement.
   static CredentialManagementResponse parseCredentialManagementResponse(
-      List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
-    final rpMap = (map[3] as Map?)?.cast<String, dynamic>();
-    final userMap = (map[6] as Map?)?.cast<String, dynamic>();
-    final credentialIdMap = (map[7] as Map?)?.cast<String, dynamic>();
-    final publicKeyMap = (map[8] as Map?)?.cast<int, dynamic>();
+      List<int> data,
+      {CoseConfiguration? configuration}) {
+    final encoded = _responseMap(data);
+    final rpMap = _field<CborMap>(encoded, 3);
+    final userMap = _field<CborMap>(encoded, 6);
+    final credentialIdMap = _field<CborMap>(encoded, 7);
+    final publicKeyMap = _field<CborMap>(encoded, 8);
     return CredentialManagementResponse(
-      existingResidentCredentialsCount: map[1] as int?,
-      maxPossibleRemainingResidentCredentialsCount: map[2] as int?,
+      existingResidentCredentialsCount: _field<CborInt>(encoded, 1)?.toInt(),
+      maxPossibleRemainingResidentCredentialsCount:
+          _field<CborInt>(encoded, 2)?.toInt(),
       rp: rpMap != null
-          ? PublicKeyCredentialRpEntity(id: rpMap['id'] as String)
+          ? PublicKeyCredentialRpEntity(
+              id: _field<CborString>(rpMap, 'id', required: true)!.toString())
           : null,
-      rpIdHash: (map[4] as List?)?.cast<int>(),
-      totalRPs: map[5] as int?,
+      rpIdHash: _field<CborBytes>(encoded, 4)?.bytes,
+      totalRPs: _field<CborInt>(encoded, 5)?.toInt(),
       user: userMap != null
           ? PublicKeyCredentialUserEntity(
-              id: CborBytes(userMap['id']).bytes,
-              name: userMap['name'] as String,
-              displayName: userMap['displayName'] as String,
+              id: _field<CborBytes>(userMap, 'id', required: true)!.bytes,
+              name: _field<CborString>(userMap, 'name', required: true)!
+                  .toString(),
+              displayName:
+                  _field<CborString>(userMap, 'displayName', required: true)!
+                      .toString(),
             )
           : null,
       credentialId: credentialIdMap != null
           ? PublicKeyCredentialDescriptor(
-              type: credentialIdMap['type'] as String,
-              id: CborBytes(credentialIdMap['id']).bytes,
+              type: _field<CborString>(credentialIdMap, 'type', required: true)!
+                  .toString(),
+              id: _field<CborBytes>(credentialIdMap, 'id', required: true)!
+                  .bytes,
             )
           : null,
-      publicKey: publicKeyMap != null ? CoseKey.parse(publicKeyMap) : null,
-      totalCredentials: map[9] as int?,
-      credProtect: map[10] as int?,
-      largeBlobKey: (map[11] as List?)?.cast<int>(),
+      publicKey: publicKeyMap != null
+          ? CoseKey.fromCborMap(publicKeyMap, configuration: configuration)
+          : null,
+      totalCredentials: _field<CborInt>(encoded, 9)?.toInt(),
+      credProtect: _field<CborInt>(encoded, 10)?.toInt(),
+      largeBlobKey: _field<CborBytes>(encoded, 11)?.bytes,
     );
   }
 }

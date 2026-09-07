@@ -96,26 +96,26 @@ enum CtapStatusCode implements Comparable<CtapStatusCode> {
   ctap2ErrVendor0D(0xFD),
   ctap2ErrVendor0E(0xFE),
   ctap2ErrVendor0F(0xFF),
-  // enums below won't be used by [fromCode], but can be referenced by users
-  /// The last value used by CTAP spec, *DO NOT USE* unless comparing
+
+  /// Upper boundary of the CTAP status-code range.
   ctap2ErrSpecLast(0xDF),
 
-  /// The first value used by extension-specific impls, *DO NOT USE* unless comparing
+  /// Lower boundary of the extension-specific status-code range.
   ctap2ErrExtensionFirst(0xE0),
 
-  /// The last value used by extension-specific impls, *DO NOT USE* unless comparing
+  /// Upper boundary of the extension-specific status-code range.
   ctap2ErrExtensionLast(0xEF),
 
-  /// The first value used by vendor-specific impls, *DO NOT USE* unless comparing
+  /// Lower boundary of the vendor-specific status-code range.
   ctap2ErrVendorFirst(0xF0),
 
-  /// The last value used by vendor-specific impls, *DO NOT USE* unless comparing
+  /// Upper boundary of the vendor-specific status-code range.
   ctap2ErrVendorLast(0xFF);
 
   final int value;
   const CtapStatusCode(this.value);
 
-  /// Convert an status code into [CtapStatusCode]
+  /// Converts a status code into [CtapStatusCode].
   static CtapStatusCode fromCode(int rawCode) {
     // skip last 5 enums that are actually boundaries defined in spec
     var numParsableCodes = CtapStatusCode.values.length - 5;
@@ -131,7 +131,7 @@ enum CtapStatusCode implements Comparable<CtapStatusCode> {
   int compareTo(CtapStatusCode other) => value.compareTo(other.value);
 }
 
-/// Represents an error retuned by CTAP device
+/// An error returned by a CTAP device.
 class CtapError extends Error {
   final CtapStatusCode status;
 

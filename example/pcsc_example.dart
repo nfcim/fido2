@@ -34,6 +34,7 @@ class CtapCcid extends CtapDevice {
 }
 
 void main() async {
+  await RustCrypto.initialize();
   final context = Context(Scope.user);
   try {
     await context.establish();
