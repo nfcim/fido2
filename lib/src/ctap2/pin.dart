@@ -1,18 +1,13 @@
+import 'entities/authenticator_info.dart';
+import 'requests/client_pin.dart';
+import '../utils/serialization.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'dart:convert';
 
-import 'package:convert/convert.dart';
-import 'package:cryptography/cryptography.dart';
-import 'package:cryptography/helpers.dart';
-import 'package:elliptic/ecdh.dart';
-import 'package:elliptic/elliptic.dart';
-import 'package:fido2/src/cose.dart';
-import 'package:fido2/src/ctap.dart';
-import 'package:fido2/src/ctap2/base.dart';
-import 'package:fido2/src/ctap2/entities/authenticator_info.dart';
-import 'package:fido2/src/ctap2/requests/client_pin.dart';
-import 'package:quiver/collection.dart';
-import 'package:fido2/src/utils/serialization.dart';
-import 'package:json_annotation/json_annotation.dart';
+import '../cose.dart';
+import '../ctap.dart';
+import '../crypto/crypto.dart';
+import 'base.dart';
 
 part 'pin.g.dart';
 
@@ -22,7 +17,6 @@ class EncapsulateResult with JsonToStringMixin {
   final List<int> sharedSecret;
 
   EncapsulateResult(this.coseKey, this.sharedSecret);
-
   @override
   Map<String, dynamic> toJson() => _$EncapsulateResultToJson(this);
 }
@@ -38,6 +32,13 @@ sealed class PinProtocol {
 
   Future<List<int>> authenticate(List<int> key, List<int> message);
 
+  /// CTAP wire MAC: v1 transmits 16 bytes, v2 transmits 32. The existing
+  /// [authenticate] API continues to return the full HMAC for compatibility.
+  Future<List<int>> authenticateParam(List<int> key, List<int> message) async {
+    final mac = await authenticate(key, message);
+    return version == 1 ? mac.sublist(0, 16) : mac;
+  }
+
   Future<bool> verify(List<int> key, List<int> message, List<int> signature);
 }
 
@@ -45,115 +46,97 @@ class PinProtocolV1 extends PinProtocol {
   @override
   int get version => 1;
 
-  final _aes = AesCbc.with256bits(
-      macAlgorithm: MacAlgorithm.empty,
-      paddingAlgorithm: PaddingAlgorithm.zero);
-
-  Future<List<int>> _kdf(List<int> z) async {
-    return (await Sha256().hash(z)).bytes;
-  }
-
   @override
   Future<EncapsulateResult> encapsulate(CoseKey peerCoseKey) async {
-    final ec = getP256();
-    final priv = ec.generatePrivateKey();
-    final pub = priv.publicKey;
-    final pubBytes = hex.decode(pub.toHex().substring(2));
+    if (peerCoseKey[1] != 2 || peerCoseKey[3] != -25 || peerCoseKey[-1] != 1) {
+      throw ArgumentError('Expected a P-256 ECDH key');
+    }
+    final result = RustCrypto.encapsulatePin([
+      4,
+      ...List<int>.from(peerCoseKey[-2]),
+      ...List<int>.from(peerCoseKey[-3]),
+    ], version);
     final keyAgreement = EcdhEsHkdf256.fromPublicKey(
-        pubBytes.sublist(0, 32), pubBytes.sublist(32, 64));
-    final sharedSecretX = computeSecret(
-        priv,
-        ec.hexToPublicKey(
-            '04${hex.encode(peerCoseKey[-2] + peerCoseKey[-3])}'));
-    final sharedSecret = await _kdf(sharedSecretX);
-    return EncapsulateResult(keyAgreement, sharedSecret);
+      result.sublist(1, 33),
+      result.sublist(33, 65),
+    );
+    return EncapsulateResult(keyAgreement, result.sublist(65));
   }
 
   @override
   Future<List<int>> encrypt(List<int> key, List<int> plaintext) async {
-    final secretBox = await _aes.encrypt(plaintext,
-        secretKey: SecretKeyData(key), nonce: List.filled(16, 0));
-    return secretBox.cipherText;
+    return RustCrypto.aes256Cbc(key, plaintext, iv: List.filled(16, 0));
   }
 
   @override
   Future<List<int>> decrypt(List<int> key, List<int> ciphertext) async {
-    return await _aes.decrypt(
-        SecretBox(ciphertext, nonce: List.filled(16, 0), mac: Mac.empty),
-        secretKey: SecretKeyData(key));
+    return RustCrypto.aes256Cbc(
+      key,
+      ciphertext,
+      iv: List.filled(16, 0),
+      decrypt: true,
+    );
   }
 
   @override
   Future<List<int>> authenticate(List<int> key, List<int> message) async {
-    final mac = await Hmac.sha256()
-        .calculateMac(message, secretKey: SecretKeyData(key));
-    return mac.bytes;
+    return RustCrypto.hmacSha256(key, message);
   }
 
   @override
   Future<bool> verify(
-      List<int> key, List<int> message, List<int> signature) async {
-    final mac = await Hmac.sha256()
-        .calculateMac(message, secretKey: SecretKeyData(key));
-    return listsEqual(mac.bytes, signature);
+    List<int> key,
+    List<int> message,
+    List<int> signature,
+  ) async {
+    return RustCrypto.verifyHmacSha256(key, message, signature);
   }
 }
 
 class PinProtocolV2 extends PinProtocolV1 {
-  static final List<int> _hkdfSalt = List.filled(32, 0);
-  static final String _hkdfInfoHmac = 'CTAP2 HMAC key';
-  static final String _hkdfInfoAes = 'CTAP2 AES key';
-
   @override
   int get version => 2;
 
   @override
-  Future<List<int>> _kdf(List<int> z) async {
-    final algorithm = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
-    final hmacKey = await algorithm.deriveKey(
-        secretKey: SecretKeyData(z),
-        nonce: _hkdfSalt,
-        info: ascii.encode(_hkdfInfoHmac));
-    final aesKey = await algorithm.deriveKey(
-        secretKey: SecretKeyData(z),
-        nonce: _hkdfSalt,
-        info: ascii.encode(_hkdfInfoAes));
-    return hmacKey.bytes + aesKey.bytes;
-  }
-
-  @override
   Future<List<int>> encrypt(List<int> key, List<int> plaintext) async {
-    final aesKey = key.sublist(32);
-    final iv = randomBytes(16);
-    final secretBox = await _aes.encrypt(plaintext,
-        secretKey: SecretKeyData(aesKey), nonce: iv);
-    return iv + secretBox.cipherText;
+    if (key.length != 64) throw ArgumentError('Expected 64-byte v2 key');
+    final iv = RustCrypto.randomBytes(16);
+    return iv + RustCrypto.aes256Cbc(key.sublist(32), plaintext, iv: iv);
   }
 
   @override
   Future<List<int>> decrypt(List<int> key, List<int> ciphertext) async {
-    final aesKey = key.sublist(32);
+    if (key.length != 64 || ciphertext.length < 16) {
+      throw ArgumentError('Invalid v2 key or ciphertext length');
+    }
     final iv = ciphertext.sublist(0, 16);
     final cipherText = ciphertext.sublist(16);
-    return await _aes.decrypt(SecretBox(cipherText, nonce: iv, mac: Mac.empty),
-        secretKey: SecretKeyData(aesKey));
+    return RustCrypto.aes256Cbc(
+      key.sublist(32),
+      cipherText,
+      iv: iv,
+      decrypt: true,
+    );
   }
 
   @override
   Future<List<int>> authenticate(List<int> key, List<int> message) async {
-    final hmacKey = key.sublist(0, 32);
-    final mac = await Hmac.sha256()
-        .calculateMac(message, secretKey: SecretKeyData(hmacKey));
-    return mac.bytes;
+    if (key.length != 32 && key.length != 64) {
+      throw ArgumentError('Expected a v2 token or shared secret');
+    }
+    return RustCrypto.hmacSha256(key.sublist(0, 32), message);
   }
 
   @override
   Future<bool> verify(
-      List<int> key, List<int> message, List<int> signature) async {
-    final hmacKey = key.sublist(0, 32);
-    final mac = await Hmac.sha256()
-        .calculateMac(message, secretKey: SecretKeyData(hmacKey));
-    return listsEqual(mac.bytes, signature);
+    List<int> key,
+    List<int> message,
+    List<int> signature,
+  ) async {
+    if (key.length != 32 && key.length != 64) {
+      throw ArgumentError('Expected a v2 token or shared secret');
+    }
+    return RustCrypto.verifyHmacSha256(key.sublist(0, 32), message, signature);
   }
 }
 
@@ -222,9 +205,12 @@ class ClientPin {
   }
 
   Future<EncapsulateResult> _getSharedSecret() async {
-    final resp = await _ctap.clientPin(ClientPinRequest(
+    final resp = await _ctap.clientPin(
+      ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
-        subCommand: ClientPinSubCommand.getKeyAgreement.value));
+        subCommand: ClientPinSubCommand.getKeyAgreement.value,
+      ),
+    );
     if (resp.status != 0) {
       throw Exception('ClientPin failed.');
     }
@@ -236,15 +222,17 @@ class ClientPin {
   /// [pin] is the PIN code.
   /// [permissions] is the permissions to be granted to the token.
   /// [permissionsRpId] is the RP ID to which the permissions apply.
-  Future<List<int>> getPinToken(String pin,
-      {List<ClientPinPermission>? permissions, String? permissionsRpId}) async {
+  Future<List<int>> getPinToken(
+    String pin, {
+    List<ClientPinPermission>? permissions,
+    String? permissionsRpId,
+  }) async {
     if (!ClientPin.isSupported(_ctap.info)) {
       throw Exception('getPinToken is not supported.');
     }
 
     final EncapsulateResult ss = await _getSharedSecret();
-    final pinHash =
-        (await Sha256().hash(utf8.encode(pin))).bytes.sublist(0, 16);
+    final pinHash = RustCrypto.sha256(utf8.encode(pin)).sublist(0, 16);
     final pinHashEnc = await _pinProtocol.encrypt(ss.sharedSecret, pinHash);
 
     int subCmd = ClientPinSubCommand.getPinToken.value;
@@ -254,20 +242,25 @@ class ClientPin {
           ClientPinSubCommand.getPinUvAuthTokenUsingPinWithPermissions.value;
     }
 
-    final resp = await _ctap.clientPin(ClientPinRequest(
+    final resp = await _ctap.clientPin(
+      ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
         subCommand: subCmd,
         keyAgreement: ss.coseKey,
         pinHashEnc: pinHashEnc,
         permissions: permissions?.fold(0, (p, e) => p! | e.value),
-        rpId: permissionsRpId));
+        rpId: permissionsRpId,
+      ),
+    );
 
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
     }
 
     return await _pinProtocol.decrypt(
-        ss.sharedSecret, resp.data!.pinUvAuthToken!);
+      ss.sharedSecret,
+      resp.data!.pinUvAuthToken!,
+    );
   }
 
   /// Get the number of PIN retries remaining.
@@ -276,9 +269,12 @@ class ClientPin {
       throw Exception('getPinRetries is not supported.');
     }
 
-    final resp = await _ctap.clientPin(ClientPinRequest(
+    final resp = await _ctap.clientPin(
+      ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
-        subCommand: ClientPinSubCommand.getPinRetries.value));
+        subCommand: ClientPinSubCommand.getPinRetries.value,
+      ),
+    );
     return resp.data!.pinRetries!;
   }
 
@@ -292,14 +288,19 @@ class ClientPin {
 
     final EncapsulateResult ss = await _getSharedSecret();
     final pinEnc = await _pinProtocol.encrypt(ss.sharedSecret, _padPin(pin));
-    final pinUvAuthParam =
-        await _pinProtocol.authenticate(ss.sharedSecret, pinEnc);
-    final resp = await _ctap.clientPin(ClientPinRequest(
+    final pinUvAuthParam = await _pinProtocol.authenticateParam(
+      ss.sharedSecret,
+      pinEnc,
+    );
+    final resp = await _ctap.clientPin(
+      ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
         subCommand: ClientPinSubCommand.setPin.value,
         keyAgreement: ss.coseKey,
         newPinEnc: pinEnc,
-        pinUvAuthParam: pinUvAuthParam));
+        pinUvAuthParam: pinUvAuthParam,
+      ),
+    );
 
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);
@@ -314,20 +315,26 @@ class ClientPin {
     }
 
     final EncapsulateResult ss = await _getSharedSecret();
-    final pinHash =
-        (await Sha256().hash(utf8.encode(oldPin))).bytes.sublist(0, 16);
+    final pinHash = RustCrypto.sha256(utf8.encode(oldPin)).sublist(0, 16);
     final pinHashEnc = await _pinProtocol.encrypt(ss.sharedSecret, pinHash);
-    final newPinEnc =
-        await _pinProtocol.encrypt(ss.sharedSecret, _padPin(newPin));
-    final pinUvAuthParam = await _pinProtocol.authenticate(
-        ss.sharedSecret, newPinEnc + pinHashEnc);
-    final resp = await _ctap.clientPin(ClientPinRequest(
+    final newPinEnc = await _pinProtocol.encrypt(
+      ss.sharedSecret,
+      _padPin(newPin),
+    );
+    final pinUvAuthParam = await _pinProtocol.authenticateParam(
+      ss.sharedSecret,
+      newPinEnc + pinHashEnc,
+    );
+    final resp = await _ctap.clientPin(
+      ClientPinRequest(
         pinUvAuthProtocol: _pinProtocol.version,
         subCommand: ClientPinSubCommand.changePin.value,
         keyAgreement: ss.coseKey,
         pinHashEnc: pinHashEnc,
         newPinEnc: newPinEnc,
-        pinUvAuthParam: pinUvAuthParam));
+        pinUvAuthParam: pinUvAuthParam,
+      ),
+    );
 
     if (resp.status != 0) {
       throw CtapError.fromCode(resp.status);

@@ -14,9 +14,11 @@ void main() {
       final builder = BytesBuilder()
         ..add(rpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List());
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        );
       final authDataBytes = builder.toBytes();
 
       final authData = AuthenticatorData.parse(authDataBytes);
@@ -46,13 +48,16 @@ void main() {
       final builder = BytesBuilder()
         ..add(rpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        )
         ..add(aaguid)
-        ..add((ByteData(2)..setUint16(0, credentialId.length, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(2)..setUint16(0, credentialId.length, Endian.big)).buffer
+              .asUint8List(),
+        )
         ..add(credentialId)
         ..add(cbor.encode(credentialPublicKey));
       final authDataBytes = builder.toBytes();
@@ -63,9 +68,13 @@ void main() {
       expect(authData.attestedCredentialData, isNotNull);
       expect(authData.attestedCredentialData!.aaguid, equals(aaguid));
       expect(
-          authData.attestedCredentialData!.credentialId, equals(credentialId));
-      expect(authData.attestedCredentialData!.credentialPublicKey.toString(),
-          equals(credentialPublicKey.toString()));
+        authData.attestedCredentialData!.credentialId,
+        equals(credentialId),
+      );
+      expect(
+        authData.attestedCredentialData!.credentialPublicKey.toString(),
+        equals(credentialPublicKey.toString()),
+      );
       expect(authData.hasExtensions, isFalse);
       expect(authData.extensions, isNull);
     });
@@ -74,16 +83,16 @@ void main() {
       final rpIdHash = Uint8List(32)..fillRange(0, 32, 4);
       final flags = 0x81; // User Present + Extensions
       final signCount = 123;
-      final extensions = CborMap({
-        CborString('hmac-secret'): CborBool(true),
-      });
+      final extensions = CborMap({CborString('hmac-secret'): CborBool(true)});
 
       final builder = BytesBuilder()
         ..add(rpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        )
         ..add(cbor.encode(extensions));
       final authDataBytes = builder.toBytes();
 
@@ -103,23 +112,30 @@ void main() {
       final aaguid = Uint8List(16)..fillRange(0, 16, 6);
       final credentialId = Uint8List.fromList([5, 6, 7, 8]);
       final credentialPublicKey = CborMap({CborSmallInt(1): CborSmallInt(2)});
-      final extensions =
-          CborMap({CborString('extKey'): CborString('extValue')});
+      final extensions = CborMap({
+        CborString('extKey'): CborString('extValue'),
+      });
 
-      final cborPayload = CborList([credentialPublicKey, extensions]);
+      final cborPayload = [
+        ...cbor.encode(credentialPublicKey),
+        ...cbor.encode(extensions),
+      ];
 
       final builder = BytesBuilder()
         ..add(rpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        )
         ..add(aaguid)
-        ..add((ByteData(2)..setUint16(0, credentialId.length, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(2)..setUint16(0, credentialId.length, Endian.big)).buffer
+              .asUint8List(),
+        )
         ..add(credentialId)
-        ..add(cbor.encode(cborPayload));
+        ..add(cborPayload);
       final authDataBytes = builder.toBytes();
 
       final authData = AuthenticatorData.parse(authDataBytes);
@@ -128,9 +144,13 @@ void main() {
       expect(authData.attestedCredentialData, isNotNull);
       expect(authData.attestedCredentialData!.aaguid, equals(aaguid));
       expect(
-          authData.attestedCredentialData!.credentialId, equals(credentialId));
-      expect(authData.attestedCredentialData!.credentialPublicKey.toString(),
-          equals(credentialPublicKey.toString()));
+        authData.attestedCredentialData!.credentialId,
+        equals(credentialId),
+      );
+      expect(
+        authData.attestedCredentialData!.credentialPublicKey.toString(),
+        equals(credentialPublicKey.toString()),
+      );
 
       expect(authData.hasExtensions, isTrue);
       expect(authData.extensions, isNotNull);
@@ -153,11 +173,13 @@ void main() {
       final builder = BytesBuilder()
         ..add(rpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List());
-      final authDataBytes =
-          builder.toBytes(); // No actual attested data appended
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        );
+      final authDataBytes = builder
+          .toBytes(); // No actual attested data appended
 
       expect(
         () => AuthenticatorData.parse(authDataBytes),

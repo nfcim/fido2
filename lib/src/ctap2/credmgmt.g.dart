@@ -6,19 +6,19 @@ part of 'credmgmt.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Map<String, dynamic> _$CmMetadataToJson(CmMetadata instance) =>
-    <String, dynamic>{
-      'existingResidentCredentialsCount':
-          instance.existingResidentCredentialsCount,
-      'maxPossibleRemainingResidentCredentialsCount':
-          instance.maxPossibleRemainingResidentCredentialsCount,
-    };
+Map<String, dynamic> _$CmMetadataToJson(
+  CmMetadata instance,
+) => <String, dynamic>{
+  'existingResidentCredentialsCount': instance.existingResidentCredentialsCount,
+  'maxPossibleRemainingResidentCredentialsCount':
+      instance.maxPossibleRemainingResidentCredentialsCount,
+};
 
 Map<String, dynamic> _$CmRpToJson(CmRp instance) => <String, dynamic>{
-      'rp': instance.rp.toJson(),
-      'rpIdHash': instance.rpIdHash,
-      'totalRPs': instance.totalRPs,
-    };
+  'rp': instance.rp.toJson(),
+  'rpIdHash': instance.rpIdHash,
+  'totalRPs': instance.totalRPs,
+};
 
 Map<String, dynamic> _$CmCredentialToJson(CmCredential instance) =>
     <String, dynamic>{
@@ -31,14 +31,14 @@ Map<String, dynamic> _$CmCredentialToJson(CmCredential instance) =>
     };
 
 Map<String, dynamic> _$CmCredentialMetadataToJson(
-        CmCredentialMetadata instance) =>
-    <String, dynamic>{
-      'user': instance.user.toJson(),
-      'credentialId': instance.credentialId.toJson(),
-      'coseAlgorithm': instance.coseAlgorithm,
-      'metadataOnly': instance.metadataOnly,
-      'publicKey': instance.publicKey?.toJson(),
-      'totalCredentials': instance.totalCredentials,
-      'credProtect': instance.credProtect,
-      'largeBlobKey': instance.largeBlobKey,
-    };
+  CmCredentialMetadata instance,
+) => <String, dynamic>{
+  'user': instance.user.toJson(),
+  'credentialId': instance.credentialId.toJson(),
+  'coseAlgorithm': instance.coseAlgorithm,
+  'metadataOnly': instance.metadataOnly,
+  'publicKey': instance.publicKey?.toJson(),
+  'totalCredentials': instance.totalCredentials,
+  'credProtect': instance.credProtect,
+  'largeBlobKey': instance.largeBlobKey,
+};

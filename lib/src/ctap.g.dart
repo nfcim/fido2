@@ -9,8 +9,7 @@ part of 'ctap.dart';
 Map<String, dynamic> _$CtapResponseToJson<T>(
   CtapResponse<T> instance,
   Object? Function(T value) toJsonT,
-) =>
-    <String, dynamic>{
-      'status': instance.status,
-      'data': toJsonT(instance.data),
-    };
+) => <String, dynamic>{
+  'status': instance.status,
+  'data': toJsonT(instance.data),
+};

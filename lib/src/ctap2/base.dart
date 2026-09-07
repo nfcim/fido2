@@ -1,4 +1,5 @@
 import 'package:fido2/src/ctap.dart';
+import '../cose.dart';
 
 import 'constants.dart';
 import 'entities/authenticator_info.dart';
@@ -10,10 +11,14 @@ class Ctap2 {
   late final AuthenticatorInfo _info;
   final CtapDevice device;
 
-  Ctap2._create(this.device);
+  final CoseConfiguration? configuration;
+  Ctap2._create(this.device, this.configuration);
 
-  static Future<Ctap2> create(CtapDevice device) async {
-    final ctap2 = Ctap2._create(device);
+  static Future<Ctap2> create(
+    CtapDevice device, {
+    CoseConfiguration? configuration,
+  }) async {
+    final ctap2 = Ctap2._create(device, configuration);
     final res = await ctap2.refreshInfo();
     if (res.status != 0) {
       throw Exception('GetInfo failed.');
@@ -31,22 +36,30 @@ class Ctap2 {
   }
 
   Future<CtapResponse<ClientPinResponse?>> clientPin(
-      ClientPinRequest request) async {
-    final req = request.encode();
-    final res = await device.transceive(req);
-    return CtapResponse(res.status,
-        res.data.isEmpty ? null : ClientPinResponse.decode(res.data));
-  }
-
-  Future<CtapResponse<CredentialManagementResponse?>> credentialManagement(
-      CredentialManagementRequest request) async {
+    ClientPinRequest request,
+  ) async {
     final req = request.encode();
     final res = await device.transceive(req);
     return CtapResponse(
-        res.status,
-        res.data.isEmpty
-            ? null
-            : CredentialManagementResponse.decode(res.data));
+      res.status,
+      res.data.isEmpty ? null : ClientPinResponse.decode(res.data),
+    );
+  }
+
+  Future<CtapResponse<CredentialManagementResponse?>> credentialManagement(
+    CredentialManagementRequest request,
+  ) async {
+    final req = request.encode();
+    final res = await device.transceive(req);
+    return CtapResponse(
+      res.status,
+      res.data.isEmpty
+          ? null
+          : CredentialManagementResponse.decode(
+              res.data,
+              configuration: configuration,
+            ),
+    );
   }
 
   Future<CtapResponse> reset() async {

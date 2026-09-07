@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import '../serialization.dart';
 import 'package:fido2/src/utils/serialization.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -61,7 +62,7 @@ class AuthenticatorInfo with JsonToStringMixin {
   final List<String>? transports;
 
   /// Supported algorithms for credential generation (most- to least-preferred).
-  final List<Map<String, int>>? algorithms;
+  final List<Map<String, dynamic>>? algorithms;
 
   /// Maximum size in bytes of serialized large-blob array, if supported.
   final int? maxSerializedLargeBlobArray;
@@ -189,7 +190,7 @@ class AuthenticatorInfo with JsonToStringMixin {
 
   /// Decodes a CBOR-encoded authenticatorGetInfo response into [AuthenticatorInfo].
   static AuthenticatorInfo decode(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
+    final map = ctapResponseMap(data).toObject() as Map;
     return AuthenticatorInfo(
       versions: (map[versionsIdx] as List).cast<String>(),
       extensions: (map[extensionsIdx] as List?)?.cast<String>(),
@@ -200,7 +201,9 @@ class AuthenticatorInfo with JsonToStringMixin {
       maxCredentialCountInList: map[maxCredentialCountInListIdx] as int?,
       maxCredentialIdLength: map[maxCredentialIdLengthIdx] as int?,
       transports: (map[transportsIdx] as List?)?.cast<String>(),
-      algorithms: (map[algorithmsIdx] as List?)?.cast<Map<String, int>>(),
+      algorithms: (map[algorithmsIdx] as List?)
+          ?.map((entry) => Map<String, dynamic>.from(entry as Map))
+          .toList(),
       maxSerializedLargeBlobArray: map[maxSerializedLargeBlobArrayIdx] as int?,
       forcePinChange: map[forcePinChangeIdx] as bool?,
       minPinLength: map[minPinLengthIdx] as int?,

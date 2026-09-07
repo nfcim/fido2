@@ -154,7 +154,7 @@ class CtapError extends Error with JsonToStringMixin {
 
   @override
   Map<String, dynamic> toJson() => {
-        'status': status.value,
-        'name': status.name,
-      };
+    'status': status.value,
+    'name': status.name,
+  };
 }

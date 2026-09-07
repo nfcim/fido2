@@ -6,3 +6,6 @@ export 'src/server/config.dart';
 export 'src/server/entities/authenticator_data.dart';
 export 'src/server/entities/registration_data.dart';
 export 'src/server/entities/verification_data.dart';
+
+export 'src/cose.dart';
+export 'src/crypto/crypto.dart';

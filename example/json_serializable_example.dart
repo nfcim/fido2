@@ -32,10 +32,7 @@ void main() {
     rp: rp,
     user: user,
     pubKeyCredParams: [
-      {
-        'type': 'public-key',
-        'alg': ES256.algorithm,
-      }
+      {'type': 'public-key', 'alg': ES256.algorithm},
     ],
     excludeList: [descriptor],
   );
@@ -74,10 +71,7 @@ void main() {
   );
   print('GetAssertionResponse.toJson: ${getResp.toJson()}');
 
-  final es256 = ES256.fromPublicKey(
-    List.filled(32, 9),
-    List.filled(32, 10),
-  );
+  final es256 = ES256.fromPublicKey(List.filled(32, 9), List.filled(32, 10));
   final credMgmtResp = CredentialManagementResponse(
     existingResidentCredentialsCount: 1,
     maxPossibleRemainingResidentCredentialsCount: 10,

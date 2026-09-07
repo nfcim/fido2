@@ -15,16 +15,12 @@ class PublicKeyCredentialRpEntity with JsonToStringMixin {
 
   /// Parses from a CBOR map as used in CTAP requests.
   factory PublicKeyCredentialRpEntity.fromCbor(Map<dynamic, dynamic> cbor) {
-    return PublicKeyCredentialRpEntity(
-      id: cbor['id'] as String,
-    );
+    return PublicKeyCredentialRpEntity(id: cbor['id'] as String);
   }
 
   /// Serializes this RP entity to a CBOR map for CTAP.
   CborValue toCbor() {
-    return CborValue({
-      'id': id,
-    });
+    return CborValue({'id': id});
   }
 
   @override
@@ -61,9 +57,7 @@ class PublicKeyCredentialUserEntity with JsonToStringMixin {
 
   /// Serializes this user entity to a CBOR map for CTAP.
   CborValue toCbor() {
-    final map = <String, dynamic>{
-      'id': CborBytes(id),
-    };
+    final map = <String, dynamic>{'id': CborBytes(id)};
     if (name != null) {
       map['name'] = name;
     }
@@ -91,8 +85,11 @@ class PublicKeyCredentialDescriptor with JsonToStringMixin {
   /// Optional hint of how to reach the authenticator (transports).
   final List<String>? transports;
 
-  PublicKeyCredentialDescriptor(
-      {required this.type, required this.id, this.transports});
+  PublicKeyCredentialDescriptor({
+    required this.type,
+    required this.id,
+    this.transports,
+  });
 
   /// Parses from a CBOR map representation.
   factory PublicKeyCredentialDescriptor.fromCbor(Map<dynamic, dynamic> cbor) {
@@ -105,10 +102,7 @@ class PublicKeyCredentialDescriptor with JsonToStringMixin {
 
   /// Serializes this descriptor to a CBOR map for CTAP.
   CborValue toCbor() {
-    final map = <String, dynamic>{
-      'type': type,
-      'id': CborBytes(id),
-    };
+    final map = <String, dynamic>{'type': type, 'id': CborBytes(id)};
     if (transports != null) {
       map['transports'] = transports;
     }

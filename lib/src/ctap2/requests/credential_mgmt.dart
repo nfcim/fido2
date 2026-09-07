@@ -1,6 +1,7 @@
 import 'package:cbor/cbor.dart';
 import 'package:fido2/src/cose.dart';
 import '../constants.dart';
+import '../serialization.dart';
 import '../entities/credential_entities.dart';
 import 'package:fido2/src/utils/serialization.dart';
 import 'package:json_annotation/json_annotation.dart';
@@ -129,32 +130,77 @@ class CredentialManagementResponse with JsonToStringMixin {
   });
 
   /// Decodes a CBOR-encoded response into [CredentialManagementResponse].
-  static CredentialManagementResponse decode(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
-    final rpMap = (map[rpIdx] as Map?)?.cast<String, dynamic>();
-    final userMap = (map[userIdx] as Map?)?.cast<String, dynamic>();
-    final credentialIdMap =
-        (map[credentialIdIdx] as Map?)?.cast<String, dynamic>();
-    final publicKeyMap = (map[publicKeyIdx] as Map?)?.cast<int, dynamic>();
+  static CredentialManagementResponse decode(
+    List<int> data, {
+    CoseConfiguration? configuration,
+  }) {
+    final encoded = ctapResponseMap(data);
+    final rpMap = cborField<CborMap>(encoded, rpIdx);
+    final userMap = cborField<CborMap>(encoded, userIdx);
+    final credentialIdMap = cborField<CborMap>(encoded, credentialIdIdx);
+    final publicKeyMap = cborField<CborMap>(encoded, publicKeyIdx);
     return CredentialManagementResponse(
-      existingResidentCredentialsCount:
-          map[existingResidentCredentialsCountIdx] as int?,
-      maxPossibleRemainingResidentCredentialsCount:
-          map[maxPossibleRemainingResidentCredentialsCountIdx] as int?,
-      rp: rpMap != null ? PublicKeyCredentialRpEntity.fromCbor(rpMap) : null,
-      rpIdHash: (map[rpIdHashIdx] as List?)?.cast<int>(),
-      totalRPs: map[totalRPsIdx] as int?,
+      existingResidentCredentialsCount: cborField<CborInt>(
+        encoded,
+        existingResidentCredentialsCountIdx,
+      )?.toInt(),
+      maxPossibleRemainingResidentCredentialsCount: cborField<CborInt>(
+        encoded,
+        maxPossibleRemainingResidentCredentialsCountIdx,
+      )?.toInt(),
+      rp: rpMap != null
+          ? PublicKeyCredentialRpEntity(
+              id: cborField<CborString>(
+                rpMap,
+                'id',
+                required: true,
+              )!.toString(),
+            )
+          : null,
+      rpIdHash: cborField<CborBytes>(encoded, rpIdHashIdx)?.bytes,
+      totalRPs: cborField<CborInt>(encoded, totalRPsIdx)?.toInt(),
       user: userMap != null
-          ? PublicKeyCredentialUserEntity.fromCbor(userMap)
+          ? PublicKeyCredentialUserEntity(
+              id: cborField<CborBytes>(userMap, 'id', required: true)!.bytes,
+              name: cborField<CborString>(userMap, 'name')?.toString(),
+              displayName: cborField<CborString>(
+                userMap,
+                'displayName',
+              )?.toString(),
+            )
           : null,
       credentialId: credentialIdMap != null
-          ? PublicKeyCredentialDescriptor.fromCbor(credentialIdMap)
+          ? PublicKeyCredentialDescriptor(
+              transports: cborField<CborList>(credentialIdMap, 'transports')
+                  ?.map((value) {
+                    if (value is! CborString) {
+                      throw const FormatException('Expected transport text');
+                    }
+                    return value.toString();
+                  })
+                  .toList(),
+              type: cborField<CborString>(
+                credentialIdMap,
+                'type',
+                required: true,
+              )!.toString(),
+              id: cborField<CborBytes>(
+                credentialIdMap,
+                'id',
+                required: true,
+              )!.bytes,
+            )
           : null,
-      publicKey: publicKeyMap != null ? CoseKey.parse(publicKeyMap) : null,
-      totalCredentials: map[totalCredentialsIdx] as int?,
-      credProtect: map[credProtectIdx] as int?,
-      largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
-      coseAlgorithm: map[coseAlgorithmIdx] as int?,
+      publicKey: publicKeyMap != null
+          ? CoseKey.fromCborMap(publicKeyMap, configuration: configuration)
+          : null,
+      totalCredentials: cborField<CborInt>(
+        encoded,
+        totalCredentialsIdx,
+      )?.toInt(),
+      credProtect: cborField<CborInt>(encoded, credProtectIdx)?.toInt(),
+      coseAlgorithm: cborField<CborInt>(encoded, coseAlgorithmIdx)?.toInt(),
+      largeBlobKey: cborField<CborBytes>(encoded, largeBlobKeyIdx)?.bytes,
     );
   }
 

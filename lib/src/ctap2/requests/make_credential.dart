@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import '../serialization.dart';
 import 'package:fido2/src/utils/serialization.dart';
 import 'package:json_annotation/json_annotation.dart';
 import '../constants.dart';
@@ -72,8 +73,9 @@ class MakeCredentialRequest with JsonToStringMixin {
     map[clientDataHashIdx] = CborBytes(clientDataHash);
     map[rpIdx] = rp.toCbor();
     map[userIdx] = user.toCbor();
-    map[pubKeyCredParamsIdx] =
-        pubKeyCredParams.map((p) => CborValue(p)).toList();
+    map[pubKeyCredParamsIdx] = pubKeyCredParams
+        .map((p) => CborValue(p))
+        .toList();
     if (excludeList != null && excludeList!.isNotEmpty) {
       map[excludeListIdx] = excludeList!.map((e) => e.toCbor()).toList();
     }
@@ -136,7 +138,7 @@ class MakeCredentialResponse with JsonToStringMixin {
 
   /// Decodes a CBOR-encoded response into [MakeCredentialResponse].
   static MakeCredentialResponse decode(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
+    final map = ctapResponseMap(data).toObject() as Map;
     return MakeCredentialResponse(
       fmt: map[fmtIdx] as String,
       authData: (map[authDataIdx] as List?)?.cast<int>() ?? [],

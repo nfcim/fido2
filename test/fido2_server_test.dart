@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
-import 'package:fido2/src/cose.dart';
+import 'package:fido2/src/cose.dart' hide Ed25519;
+import 'support.dart';
+import 'package:fido2/src/crypto/crypto.dart';
 import 'package:fido2/src/server/base.dart';
 import 'package:fido2/src/server/entities/authenticator_data.dart';
 import 'package:fido2/src/server/config.dart';
@@ -13,85 +15,98 @@ import 'package:fido2/src/server/entities/verification_data.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final config = Fido2Config(
-    rpId: 'webauthn.io',
-    rpName: 'Webauthn.io Test',
-  );
+  setUpAll(initializeCrypto);
+  final config = Fido2Config(rpId: 'webauthn.io', rpName: 'Webauthn.io Test');
 
   final server = Fido2Server(config);
   group('Fido2Server registration', () {
-    test('completeRegistration with constructed attestation (Ed25519, none)',
-        () async {
-      // 1) RP generates registration options and stores expectedChallenge
-      final options =
-          server.generateRegistrationOptions('testuser', 'Test User');
-      final String challenge = options['challenge'];
+    test(
+      'completeRegistration with constructed attestation (Ed25519, none)',
+      () async {
+        // 1) RP generates registration options and stores expectedChallenge
+        final options = server.generateRegistrationOptions(
+          'testuser',
+          'Test User',
+        );
+        final String challenge = options['challenge'];
 
-      // 2) Construct clientDataJSON
-      final clientData = {
-        'type': 'webauthn.create',
-        'challenge': challenge,
-        'origin': 'https://webauthn.io',
-        'crossOrigin': false,
-      };
-      final clientDataBase64 =
-          base64Url.encode(utf8.encode(json.encode(clientData)));
+        // 2) Construct clientDataJSON
+        final clientData = {
+          'type': 'webauthn.create',
+          'challenge': challenge,
+          'origin': 'https://webauthn.io',
+          'crossOrigin': false,
+        };
+        final clientDataBase64 = base64Url.encode(
+          utf8.encode(json.encode(clientData)),
+        );
 
-      // 3) Build authenticatorData with attested credential data
-      final rpIdHash = crypto.sha256.convert(utf8.encode(config.rpId)).bytes;
-      final flags = 0x41; // User Present + Attested Credential Data
-      final signCount = 1;
-      final aaguid = Uint8List(16); // zeros
-      final credentialId = Uint8List.fromList([1, 2, 3, 4]);
+        // 3) Build authenticatorData with attested credential data
+        final rpIdHash = crypto.sha256.convert(utf8.encode(config.rpId)).bytes;
+        final flags = 0x41; // User Present + Attested Credential Data
+        final signCount = 1;
+        final aaguid = Uint8List(16); // zeros
+        final credentialId = Uint8List.fromList([1, 2, 3, 4]);
 
-      // Generate an Ed25519 key and COSE public key
-      final algorithm = Ed25519();
-      final keyPair = await algorithm.newKeyPair();
-      final publicKey = await keyPair.extractPublicKey();
-      final cosePubKey = EdDSA.fromPublicKey(publicKey.bytes).toCborMap();
+        // Generate an Ed25519 key and COSE public key
+        final algorithm = Ed25519();
+        final keyPair = await algorithm.newKeyPair();
+        final publicKey = await keyPair.extractPublicKey();
+        final cosePubKey = EdDSA.fromPublicKey(publicKey.bytes).toCborMap();
 
-      final authDataBuilder = BytesBuilder()
-        ..add(rpIdHash)
-        ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List())
-        ..add(aaguid)
-        ..add((ByteData(2)..setUint16(0, credentialId.length, Endian.big))
-            .buffer
-            .asUint8List())
-        ..add(credentialId)
-        ..add(cbor.encode(cosePubKey));
-      final authDataBytes = authDataBuilder.toBytes();
+        final authDataBuilder = BytesBuilder()
+          ..add(rpIdHash)
+          ..addByte(flags)
+          ..add(
+            (ByteData(
+              4,
+            )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+          )
+          ..add(aaguid)
+          ..add(
+            (ByteData(2)..setUint16(0, credentialId.length, Endian.big)).buffer
+                .asUint8List(),
+          )
+          ..add(credentialId)
+          ..add(cbor.encode(cosePubKey));
+        final authDataBytes = authDataBuilder.toBytes();
 
-      // 4) Wrap into attestationObject (fmt: none)
-      final attObj = CborMap({
-        CborString('fmt'): CborString('none'),
-        CborString('authData'): CborBytes(authDataBytes),
-        CborString('attStmt'): CborMap({}),
-      });
-      final attestationObjectBase64 =
-          base64Url.encode(cbor.encode(CborValue(attObj)));
+        // 4) Wrap into attestationObject (fmt: none)
+        final attObj = CborMap({
+          CborString('fmt'): CborString('none'),
+          CborString('authData'): CborBytes(authDataBytes),
+          CborString('attStmt'): CborMap({}),
+        });
+        final attestationObjectBase64 = base64Url.encode(
+          cbor.encode(CborValue(attObj)),
+        );
 
-      // 5) Complete registration
-      final result = server.completeRegistration(
-        clientDataBase64,
-        attestationObjectBase64,
-        challenge,
-      );
+        // 5) Complete registration
+        final result = server.completeRegistration(
+          clientDataBase64,
+          attestationObjectBase64,
+          challenge,
+        );
 
-      expect(result, isA<RegistrationResult>());
-      expect(result.credentialId, isNotEmpty);
-      expect(result.credentialPublicKey, isA<CborMap>());
-      // Basic checks on the COSE key
-      final pubKey = result.credentialPublicKey;
-      expect(pubKey[CborInt(BigInt.from(CoseKey.ktyIdx))]!.toObject(),
-          equals(CoseKey.ktyOKP));
-      expect(pubKey[CborInt(BigInt.from(CoseKey.algIdx))]!.toObject(),
-          equals(EdDSA.algorithm));
-      expect(pubKey[CborInt(BigInt.from(CoseKey.okpCrvIdx))]!.toObject(),
-          equals(CoseKey.okpCrvEd25519));
-    });
+        expect(result, isA<RegistrationResult>());
+        expect(result.credentialId, isNotEmpty);
+        expect(result.credentialPublicKey, isA<CborMap>());
+        // Basic checks on the COSE key
+        final pubKey = result.credentialPublicKey;
+        expect(
+          pubKey[CborInt(BigInt.from(CoseKey.ktyIdx))]!.toObject(),
+          equals(CoseKey.ktyOKP),
+        );
+        expect(
+          pubKey[CborInt(BigInt.from(CoseKey.algIdx))]!.toObject(),
+          equals(EdDSA.algorithm),
+        );
+        expect(
+          pubKey[CborInt(BigInt.from(CoseKey.okpCrvIdx))]!.toObject(),
+          equals(CoseKey.okpCrvEd25519),
+        );
+      },
+    );
 
     test('completeRegistration fails on mismatched challenge', () async {
       // 1) Generate options and use the provided challenge inside clientData
@@ -105,8 +120,9 @@ void main() {
         'origin': 'https://webauthn.io',
         'crossOrigin': false,
       };
-      final clientDataBase64 =
-          base64Url.encode(utf8.encode(json.encode(clientData)));
+      final clientDataBase64 = base64Url.encode(
+        utf8.encode(json.encode(clientData)),
+      );
 
       // 3) Construct minimal valid authenticatorData with correct rpIdHash
       final rpIdHash = crypto.sha256.convert(utf8.encode(config.rpId)).bytes;
@@ -123,13 +139,16 @@ void main() {
       final authDataBuilder = BytesBuilder()
         ..add(rpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        )
         ..add(aaguid)
-        ..add((ByteData(2)..setUint16(0, credentialId.length, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(2)..setUint16(0, credentialId.length, Endian.big)).buffer
+              .asUint8List(),
+        )
         ..add(credentialId)
         ..add(cbor.encode(cosePubKey));
       final authDataBytes = authDataBuilder.toBytes();
@@ -139,11 +158,12 @@ void main() {
         CborString('authData'): CborBytes(authDataBytes),
         CborString('attStmt'): CborMap({}),
       });
-      final attestationObjectBase64 =
-          base64Url.encode(cbor.encode(CborValue(attObj)));
+      final attestationObjectBase64 = base64Url.encode(
+        cbor.encode(CborValue(attObj)),
+      );
 
       // 4) Pass a wrong expectedChallenge to trigger mismatch
-      const wrongExpectedChallenge = 'not-the-same-challenge';
+      final wrongExpectedChallenge = base64Url.encode(List.filled(32, 99));
 
       expect(
         () => server.completeRegistration(
@@ -151,8 +171,7 @@ void main() {
           attestationObjectBase64,
           wrongExpectedChallenge,
         ),
-        throwsA(predicate((e) =>
-            e is Exception && e.toString().contains('challenge mismatch'))),
+        throwsFormatException,
       );
     });
 
@@ -168,12 +187,14 @@ void main() {
         'origin': 'https://webauthn.io',
         'crossOrigin': false,
       };
-      final clientDataBase64 =
-          base64Url.encode(utf8.encode(json.encode(clientData)));
+      final clientDataBase64 = base64Url.encode(
+        utf8.encode(json.encode(clientData)),
+      );
 
       // 3) Build authenticatorData with WRONG rpIdHash (use a different domain)
-      final wrongRpIdHash =
-          crypto.sha256.convert(utf8.encode('evil.com')).bytes;
+      final wrongRpIdHash = crypto.sha256
+          .convert(utf8.encode('evil.com'))
+          .bytes;
       final flags = 0x41; // User Present + Attested Credential Data
       final signCount = 1;
       final aaguid = Uint8List(16);
@@ -187,13 +208,16 @@ void main() {
       final authDataBuilder = BytesBuilder()
         ..add(wrongRpIdHash)
         ..addByte(flags)
-        ..add((ByteData(4)..setUint32(0, signCount, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(
+            4,
+          )..setUint32(0, signCount, Endian.big)).buffer.asUint8List(),
+        )
         ..add(aaguid)
-        ..add((ByteData(2)..setUint16(0, credentialId.length, Endian.big))
-            .buffer
-            .asUint8List())
+        ..add(
+          (ByteData(2)..setUint16(0, credentialId.length, Endian.big)).buffer
+              .asUint8List(),
+        )
         ..add(credentialId)
         ..add(cbor.encode(cosePubKey));
       final authDataBytes = authDataBuilder.toBytes();
@@ -203,8 +227,9 @@ void main() {
         CborString('authData'): CborBytes(authDataBytes),
         CborString('attStmt'): CborMap({}),
       });
-      final attestationObjectBase64 =
-          base64Url.encode(cbor.encode(CborValue(attObj)));
+      final attestationObjectBase64 = base64Url.encode(
+        cbor.encode(CborValue(attObj)),
+      );
 
       expect(
         () => server.completeRegistration(
@@ -212,17 +237,13 @@ void main() {
           attestationObjectBase64,
           challenge,
         ),
-        throwsA(predicate((e) =>
-            e is Exception && e.toString().contains('rpIdHash mismatch'))),
+        throwsFormatException,
       );
     });
   });
 
   group('Fido2Server verification', () {
-    final config = Fido2Config(
-      rpId: 'webauthn.io',
-      rpName: 'Webauthn.io Test',
-    );
+    final config = Fido2Config(rpId: 'webauthn.io', rpName: 'Webauthn.io Test');
     final server = Fido2Server(config);
 
     Uint8List beUint32(int v) {
@@ -267,13 +288,17 @@ void main() {
       final rpIdHash = crypto.sha256.convert(utf8.encode(config.rpId)).bytes;
       final flags = [0x01]; // User present
       final signCount = beUint32(1);
-      final authData =
-          Uint8List.fromList([...rpIdHash, ...flags, ...signCount]);
+      final authData = Uint8List.fromList([
+        ...rpIdHash,
+        ...flags,
+        ...signCount,
+      ]);
       final authDataBase64 = base64Url.encode(authData);
 
       // 5) Sign (authData || SHA256(clientDataJSON)) with Ed25519
-      final clientDataHash =
-          crypto.sha256.convert(utf8.encode(clientDataJson)).bytes;
+      final clientDataHash = crypto.sha256
+          .convert(utf8.encode(clientDataJson))
+          .bytes;
       final toSign = Uint8List.fromList([...authData, ...clientDataHash]);
       final sig = await algorithm.sign(toSign, keyPair: keyPair);
       final signatureBase64 = base64Url.encode(sig.bytes);
@@ -317,8 +342,9 @@ void main() {
       final authData = Uint8List.fromList([...rpIdHash, 0x01, 0, 0, 0, 1]);
       final authDataBase64 = base64Url.encode(authData);
 
-      final clientDataHash =
-          crypto.sha256.convert(utf8.encode(clientDataJson)).bytes;
+      final clientDataHash = crypto.sha256
+          .convert(utf8.encode(clientDataJson))
+          .bytes;
       final toSign = Uint8List.fromList([...authData, ...clientDataHash]);
       final sig = await algorithm.sign(toSign, keyPair: keyPair);
       final signatureBase64 = base64Url.encode(sig.bytes);
@@ -328,12 +354,11 @@ void main() {
           clientDataBase64,
           authDataBase64,
           signatureBase64,
-          'wrong-challenge',
+          base64Url.encode(List.filled(32, 99)),
           cborPubKey,
           0,
         ),
-        throwsA(predicate((e) =>
-            e is Exception && e.toString().contains('challenge mismatch'))),
+        throwsFormatException,
       );
     });
 
@@ -362,8 +387,9 @@ void main() {
 
       // Make a signature with a different key (invalid w.r.t public key)
       final wrongKeyPair = await algorithm.newKeyPair();
-      final clientDataHash =
-          crypto.sha256.convert(utf8.encode(clientDataJson)).bytes;
+      final clientDataHash = crypto.sha256
+          .convert(utf8.encode(clientDataJson))
+          .bytes;
       final toSign = Uint8List.fromList([...authData, ...clientDataHash]);
       final sig = await algorithm.sign(toSign, keyPair: wrongKeyPair);
       final signatureBase64 = base64Url.encode(sig.bytes);
@@ -377,8 +403,7 @@ void main() {
           cborPubKey,
           0,
         ),
-        throwsA(predicate((e) =>
-            e is Exception && e.toString().contains('signature verification'))),
+        throwsA(isA<CryptoException>()),
       );
     });
 
@@ -406,8 +431,9 @@ void main() {
       final authData = Uint8List.fromList([...rpIdHash, 0x01, 0, 0, 0, 5]);
       final authDataBase64 = base64Url.encode(authData);
 
-      final clientDataHash =
-          crypto.sha256.convert(utf8.encode(clientDataJson)).bytes;
+      final clientDataHash = crypto.sha256
+          .convert(utf8.encode(clientDataJson))
+          .bytes;
       final toSign = Uint8List.fromList([...authData, ...clientDataHash]);
       final sig = await algorithm.sign(toSign, keyPair: keyPair);
       final signatureBase64 = base64Url.encode(sig.bytes);
@@ -422,9 +448,7 @@ void main() {
           cborPubKey,
           10,
         ),
-        throwsA(predicate((e) =>
-            e is Exception &&
-            e.toString().contains('sign count did not increase'))),
+        throwsFormatException,
       );
     });
   });
@@ -449,8 +473,10 @@ void main() {
 
       final pubKey = result.credentialPublicKey;
       final x = (pubKey[CborInt(BigInt.from(-2))] as CborBytes).bytes;
-      expect(base64Url.encode(x),
-          equals('Cp5bqsla5eaTxRTHpQmkDi7-XwEYW5WWKRiMnSU776s='));
+      expect(
+        base64Url.encode(x),
+        equals('Cp5bqsla5eaTxRTHpQmkDi7-XwEYW5WWKRiMnSU776s='),
+      );
     });
     test('Verification succeeds', () async {
       const clientDataBase64 =
@@ -502,12 +528,18 @@ void main() {
       expect(result.credentialPublicKey, isA<CborMap>());
 
       final pubKey = result.credentialPublicKey;
-      expect(pubKey[CborInt(BigInt.from(CoseKey.ktyIdx))]!.toObject(),
-          equals(CoseKey.ktyEC2));
-      expect(pubKey[CborInt(BigInt.from(CoseKey.algIdx))]!.toObject(),
-          equals(ES256.algorithm));
-      expect(pubKey[CborInt(BigInt.from(CoseKey.ec2CrvIdx))]!.toObject(),
-          equals(CoseKey.ec2CrvP256));
+      expect(
+        pubKey[CborInt(BigInt.from(CoseKey.ktyIdx))]!.toObject(),
+        equals(CoseKey.ktyEC2),
+      );
+      expect(
+        pubKey[CborInt(BigInt.from(CoseKey.algIdx))]!.toObject(),
+        equals(ES256.algorithm),
+      );
+      expect(
+        pubKey[CborInt(BigInt.from(CoseKey.ec2CrvIdx))]!.toObject(),
+        equals(CoseKey.ec2CrvP256),
+      );
       final x =
           (pubKey[CborInt(BigInt.from(CoseKey.ec2XIdx))] as CborBytes).bytes;
       final y =
@@ -522,12 +554,14 @@ void main() {
           'o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVjKdKbqkhPJnC90siSSsyDPQCYqlMGpUKA5fyklC2CEHvBFAAAAYwAAAAAAAAAAAAAAAAAAAAAARkNIZuq_9TlVtKeOTuC_oU_8mM8IGfJVZS58mF_pnrvEAQF0puqSE8mcL3SyJJKzIM9AJiqUwalQoDl_KSULYIQe8P____mlAQIDJiABIVggPO8x8YWk2S-8Yr-M7oVTQI-175w9yqaiTOpxxNbuk4ciWCBrzO_bU03_ympwejDxc1fYZE1CgqCqiNCDpqKCr2bnFA';
 
       String pad(String s) => s.padRight((s.length + 3) & ~3, '=');
-      final attestationObject = cbor
-          .decode(base64Url.decode(pad(attestationObjectBase64))) as CborMap;
+      final attestationObject =
+          cbor.decode(base64Url.decode(pad(attestationObjectBase64)))
+              as CborMap;
       final authDataBytes =
           (attestationObject[CborString('authData')] as CborBytes).bytes;
-      final authData =
-          AuthenticatorData.parse(Uint8List.fromList(authDataBytes));
+      final authData = AuthenticatorData.parse(
+        Uint8List.fromList(authDataBytes),
+      );
       final cborPubKey = authData.attestedCredentialData!.credentialPublicKey;
 
       // Provided assertion data

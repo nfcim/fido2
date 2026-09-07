@@ -1,4 +1,6 @@
 import 'dart:typed_data';
+import '../../cose.dart';
+import '../../strict_cbor.dart';
 
 import 'package:cbor/cbor.dart';
 import 'package:fido2/src/utils/serialization.dart';
@@ -52,13 +54,31 @@ class AuthenticatorData with JsonToStringMixin {
   /// Authenticator extension outputs, if present.
   final CborMap? extensions;
 
+  @JsonKey(includeToJson: false)
+  final Uint8List bytes;
+  final CoseConfiguration? _configuration;
+  bool get backupEligible => flags & 8 != 0;
+  bool get backedUp => flags & 16 != 0;
+  @JsonKey(includeToJson: false)
+  List<int>? get credentialId => attestedCredentialData?.credentialId;
+  @JsonKey(includeToJson: false)
+  CoseKey? get credentialPublicKey => attestedCredentialData == null
+      ? null
+      : CoseKey.fromCborMap(
+          attestedCredentialData!.credentialPublicKey,
+          configuration: _configuration,
+        );
+
   AuthenticatorData({
     required this.rpIdHash,
     required this.flags,
     required this.signCount,
     this.attestedCredentialData,
     this.extensions,
-  });
+    Uint8List? bytes,
+    CoseConfiguration? configuration,
+  }) : bytes = bytes ?? Uint8List(0),
+       _configuration = configuration;
 
   /// User Present flag (bit 0).
   bool get userPresent => (flags & 0x01) != 0;
@@ -76,94 +96,73 @@ class AuthenticatorData with JsonToStringMixin {
   ///
   /// This follows the structure defined in the WebAuthn specification:
   /// https://www.w3.org/TR/webauthn-2/#sctn-authenticator-data
-  static AuthenticatorData parse(Uint8List authDataBytes) {
-    var offset = 0;
-
-    // Helper to read a chunk of bytes and advance the offset.
+  static AuthenticatorData parse(
+    List<int> input, {
+    CoseConfiguration? configuration,
+  }) {
+    if (input.length < 37 ||
+        input.length > 65536 ||
+        input.any((b) => b < 0 || b > 255)) {
+      throw const FormatException('Invalid authenticator data length or bytes');
+    }
+    final bytes = Uint8List.fromList(input);
+    var offset = 37;
+    final flags = bytes[32];
+    if (flags & 16 != 0 && flags & 8 == 0) {
+      throw const FormatException('Backup state requires backup eligibility');
+    }
+    final signCount = ByteData.sublistView(bytes, 33, 37).getUint32(0);
     Uint8List readBytes(int length) {
-      if (authDataBytes.length < offset + length) {
-        throw FormatException(
-          'Authenticator data too short. Needed $length bytes at offset $offset, but length is ${authDataBytes.length}',
-        );
+      if (offset + length > bytes.length) {
+        throw const FormatException('Truncated authenticator data');
       }
-      final slice = authDataBytes.sublist(offset, offset + length);
+      final result = bytes.sublist(offset, offset + length);
       offset += length;
-      return slice;
+      return result;
     }
 
-    final rpIdHash = readBytes(32);
-    final flags = readBytes(1)[0];
-    final signCountBytes = readBytes(4);
-    final signCount = ByteData.view(
-      signCountBytes.buffer,
-      signCountBytes.offsetInBytes,
-    ).getUint32(0, Endian.big);
+    CborMap readMap() {
+      final (value, end) = readCborItem(bytes, offset);
+      offset = end;
+      if (value is! CborMap || value.tags.isNotEmpty) {
+        throw const FormatException('Expected untagged CBOR map');
+      }
+      return value;
+    }
 
-    AttestedCredentialData? attestedCredentialData;
-    CborMap? extensions;
-
-    final hasAttestedData = (flags & 0x40) != 0;
-    final hasExtensionsData = (flags & 0x80) != 0;
-
-    if (hasAttestedData) {
+    AttestedCredentialData? attested;
+    if (flags & 64 != 0) {
       final aaguid = readBytes(16);
-      final credIdLengthBytes = readBytes(2);
-      final credentialIdLength = ByteData.view(
-        credIdLengthBytes.buffer,
-        credIdLengthBytes.offsetInBytes,
-      ).getUint16(0, Endian.big);
-      final credentialId = readBytes(credentialIdLength);
-
-      // The rest of the buffer contains the CBOR-encoded public key and, if present, extensions.
-      final remainingBytes = authDataBytes.sublist(offset);
-      if (remainingBytes.isEmpty) {
-        throw FormatException(
-            'Authenticator data ended unexpectedly. Missing credential public key.');
+      final lengthBytes = readBytes(2);
+      final length = lengthBytes[0] * 256 + lengthBytes[1];
+      if (length == 0 || length > 1023) {
+        throw const FormatException('Invalid credential ID length');
       }
-
-      final decoded = cbor.decode(remainingBytes);
-      final List<CborValue> cborItems;
-      if (decoded is CborList) {
-        cborItems = decoded;
-      } else {
-        cborItems = [decoded];
-      }
-
-      if (cborItems.isEmpty || cborItems.first is! CborMap) {
-        throw FormatException(
-            'Could not parse credential public key, expected a CborMap.');
-      }
-      final credentialPublicKey = cborItems.first as CborMap;
-
-      attestedCredentialData = AttestedCredentialData(
+      final id = readBytes(length);
+      attested = AttestedCredentialData(
         aaguid: aaguid,
-        credentialId: credentialId,
-        credentialPublicKey: credentialPublicKey,
+        credentialId: id,
+        credentialPublicKey: readMap(),
       );
-
-      // If extensions are also present, they are the second item in the CBOR list.
-      if (hasExtensionsData &&
-          cborItems.length > 1 &&
-          cborItems[1] is CborMap) {
-        extensions = cborItems[1] as CborMap;
-      }
-    } else if (hasExtensionsData) {
-      // Attested data is not present, but extensions are.
-      final extBytes = authDataBytes.sublist(offset);
-      if (extBytes.isNotEmpty) {
-        final decodedExt = cbor.decode(extBytes);
-        if (decodedExt is CborMap) {
-          extensions = decodedExt;
-        }
+    }
+    CborMap? extensions;
+    if (flags & 128 != 0) {
+      extensions = readMap();
+      if (extensions.keys.any((k) => k is! CborString)) {
+        throw const FormatException('Expected extension text keys');
       }
     }
-
+    if (offset != bytes.length) {
+      throw const FormatException('Trailing authenticator data');
+    }
     return AuthenticatorData(
-      rpIdHash: rpIdHash,
+      rpIdHash: bytes.sublist(0, 32),
       flags: flags,
       signCount: signCount,
-      attestedCredentialData: attestedCredentialData,
+      attestedCredentialData: attested,
       extensions: extensions,
+      bytes: bytes,
+      configuration: configuration,
     );
   }
 

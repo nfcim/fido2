@@ -1,17 +1,91 @@
 import 'dart:collection';
-import 'dart:typed_data';
-
-import 'package:cryptography/cryptography.dart' as crypto_api;
-import 'package:pointycastle/export.dart' as pc;
-import 'package:asn1lib/asn1lib.dart' as asn1;
-
+import 'dart:convert';
 import 'package:cbor/cbor.dart';
-import 'package:fido2/src/utils/serialization.dart';
+import 'crypto/crypto.dart';
+import 'strict_cbor.dart';
+import 'utils/serialization.dart';
 
-/// Represents a key as specified by RFC8152:
-/// [CBOR Object Signing and Encryption (COSE)](https://tools.ietf.org/html/rfc8152)
-///
-/// Extended this class to support more COSE key types.
+enum SignatureEncoding { raw, der }
+
+enum SignatureAlgorithm { es256, ed25519, sm2, mlDsa44, mlDsa65, mlDsa87 }
+
+/// Explicit EC2 compatibility profile: SM2 has no IANA COSE allocation.
+class Sm2Configuration {
+  final int algorithm;
+  final int curve;
+  final String id;
+  final SignatureEncoding signatureEncoding;
+  Sm2Configuration({
+    required this.algorithm,
+    required this.curve,
+    this.id = '1234567812345678',
+    this.signatureEncoding = SignatureEncoding.raw,
+    bool allowUnassignedIdentifiers = false,
+  }) {
+    // Compatibility profiles use private-use or opted-in unassigned identifiers.
+    final validAlgorithm =
+        algorithm < -65536 ||
+        (allowUnassignedIdentifiers && algorithm >= -256 && algorithm <= -54);
+    final validCurve =
+        curve < -65536 ||
+        (allowUnassignedIdentifiers && curve >= 9 && curve <= 255);
+    if (!validAlgorithm || !validCurve || utf8.encode(id).length > 8191) {
+      throw ArgumentError(
+        'SM2 requires private-use or explicitly enabled unassigned identifiers and ID <=8191 UTF-8 bytes',
+      );
+    }
+  }
+}
+
+class CoseConfiguration {
+  final Sm2Configuration? sm2;
+  final Map<int, SignatureAlgorithm> compatibilityAlgorithms;
+  CoseConfiguration({
+    this.sm2,
+    Map<int, SignatureAlgorithm> compatibilityAlgorithms = const {},
+  }) : compatibilityAlgorithms = Map.unmodifiable(compatibilityAlgorithms) {
+    for (final entry in compatibilityAlgorithms.entries) {
+      if (entry.key >= -65536 ||
+          entry.key == sm2?.algorithm ||
+          entry.value == SignatureAlgorithm.sm2) {
+        throw ArgumentError(
+          'Conflicting compatibility algorithm; configure SM2 separately',
+        );
+      }
+    }
+  }
+  SignatureAlgorithm? resolve(int algorithm) => switch (algorithm) {
+    -7 || -9 => SignatureAlgorithm.es256,
+    -8 || -19 => SignatureAlgorithm.ed25519,
+    -48 => SignatureAlgorithm.mlDsa44,
+    -49 => SignatureAlgorithm.mlDsa65,
+    -50 => SignatureAlgorithm.mlDsa87,
+    _ =>
+      algorithm == sm2?.algorithm
+          ? SignatureAlgorithm.sm2
+          : compatibilityAlgorithms[algorithm],
+  };
+}
+
+Object? _freeze(Object? value) {
+  if (value is CborValue) return value;
+  if (value is List<int>) return List<int>.unmodifiable(value);
+  if (value is List) return List.unmodifiable(value.map(_freeze));
+  if (value is Map) {
+    return Map.unmodifiable(value.map((k, v) => MapEntry(k, _freeze(v))));
+  }
+  return value;
+}
+
+CborValue _encode(Object? value, {bool bytes = false}) {
+  if (value is CborValue) return value;
+  if (bytes && value is List) {
+    return CborBytes(value.cast<int>());
+  }
+  return CborValue(value);
+}
+
+/// Parsing checks structure. [validate] checks mathematical validity in Rust.
 sealed class CoseKey extends MapView<int, dynamic> with JsonToStringMixin {
   // Key Objects (RFC8152 Section 7.1)
   static const int ktyIdx = 1;
@@ -36,235 +110,364 @@ sealed class CoseKey extends MapView<int, dynamic> with JsonToStringMixin {
   // OKP Curves (RFC8152 Section 13.1)
   static const int okpCrvEd25519 = 6;
 
+  static const int ktyAKP = 7;
+  @override
+  Map<String, dynamic> toJson() => {
+    for (final entry in entries)
+      entry.key.toString(): entry.value is CborValue
+          ? (entry.value as CborValue).toObject()
+          : entry.value,
+  };
+
   static const int? algorithm = null;
-
-  /// Constructor with optional parameters
-  CoseKey(super.coseKeyParams);
-
-  /// Verifies a signature for the provided message using this COSE public key.
-  ///
-  /// Throws an [Exception] if verification fails or the algorithm is unsupported.
-  Future<void> verify(List<int> message, List<int> signature) async {
-    throw UnimplementedError('Signature verification not supported.');
-  }
-
-  /// Convert to a CBOR Map representation suitable for passing through APIs
-  /// that expect a [CborMap] (e.g., server verification inputs).
-  CborMap toCborMap() {
-    throw UnimplementedError('toCborMap not supported.');
-  }
-
-  /// Convert to standard CBOR encoded format
-  CborValue toCbor() {
-    return CborValue(toCborMap());
-  }
-
-  /// Static method to parse a COSE key
-  static CoseKey parse(Map<int, dynamic> cose) {
-    int? alg = cose[algIdx];
-    if (alg == null) {
-      throw ArgumentError('COSE alg identifier must be provided.');
+  CoseKey(Map<int, dynamic> params)
+    : super(Map.unmodifiable(params.map((k, v) => MapEntry(k, _freeze(v))))) {
+    if (this[3] is! int || this[1] is! int) {
+      throw ArgumentError('COSE kty and alg must be integers');
     }
-    switch (alg) {
-      case ES256.algorithm:
-        return ES256(cose);
-      case EdDSA.algorithm:
-        return EdDSA(cose);
-      case EcdhEsHkdf256.algorithm:
-        return EcdhEsHkdf256(cose);
-    }
-    return UnsupportedKey(cose);
   }
+  int get algorithmId => this[3] as int;
+  String get rustAlgorithm =>
+      throw UnsupportedError('Unsupported COSE algorithm $algorithmId');
+  List<int> get publicKeyBytes =>
+      throw UnsupportedError('Unsupported COSE algorithm $algorithmId');
+  void validate() =>
+      RustCrypto.validatePublicKey(rustAlgorithm, publicKeyBytes);
 
-  /// Static method to get all algorithms supported by fido2 library
-  static List<int> supportedAlgorithms() {
-    return [ES256.algorithm, EdDSA.algorithm, EcdhEsHkdf256.algorithm];
-  }
-
-  @override
-  Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{};
-    forEach((key, value) {
-      map[key.toString()] = value;
-    });
-    return map;
-  }
-}
-
-/// Represents a currently unsupported COSE key type
-class UnsupportedKey extends CoseKey {
-  UnsupportedKey(super.coseKeyParams);
-}
-
-/// Represents a COSE key of type EdDSA (Ed25519, see RFC8152 8.2)
-class EdDSA extends CoseKey {
-  static const int algorithm = -8;
-
-  EdDSA(super.coseKeyParams);
-
-  /// Static method to create a new instance from public key coordinates
-  static EdDSA fromPublicKey(List<int> x) {
-    return EdDSA({
-      CoseKey.ktyIdx: CoseKey.ktyOKP,
-      CoseKey.algIdx: EdDSA.algorithm,
-      CoseKey.okpCrvIdx: CoseKey.okpCrvEd25519,
-      CoseKey.okpXIdx: x,
-    });
-  }
-
-  @override
-  CborMap toCborMap() {
-    return CborMap({
-      CborInt(BigInt.from(CoseKey.ktyIdx)):
-          CborInt(BigInt.from(CoseKey.ktyOKP)),
-      CborInt(BigInt.from(CoseKey.algIdx)):
-          CborInt(BigInt.from(EdDSA.algorithm)),
-      CborInt(BigInt.from(CoseKey.okpCrvIdx)):
-          CborInt(BigInt.from(CoseKey.okpCrvEd25519)),
-      CborInt(BigInt.from(CoseKey.okpXIdx)): CborBytes(this[CoseKey.okpXIdx]),
-    });
-  }
-
-  @override
-  Future<void> verify(List<int> message, List<int> signature) async {
-    final xBytes = this[CoseKey.okpXIdx] as List<int>?;
-    if (xBytes == null) {
-      throw Exception('Ed25519 verification failed: missing public key (x).');
-    }
-    // Ed25519 signatures must be exactly 64 bytes (R || S)
-    if (signature.length != 64) {
-      throw Exception(
-          'Assertion signature verification failed (Ed25519): invalid signature length ${signature.length}, expected 64 bytes.');
-    }
-    final pubKey = crypto_api.SimplePublicKey(
-      xBytes,
-      type: crypto_api.KeyPairType.ed25519,
-    );
-    final verified = await crypto_api.Ed25519().verify(
+  /// Verifies a signature using the initialized Rust backend.
+  Future<void> verify(
+    List<int> message,
+    List<int> signature, {
+    SignatureEncoding? encoding,
+    String? sm2Id,
+    String mlDsaMode = 'pure',
+    List<int> context = const [],
+  }) async {
+    verifySync(
       message,
-      signature: crypto_api.Signature(signature, publicKey: pubKey),
+      signature,
+      encoding: encoding,
+      sm2Id: sm2Id,
+      mlDsaMode: mlDsaMode,
+      context: context,
     );
-    if (!verified) {
-      throw Exception('Assertion signature verification failed (Ed25519).');
+  }
+
+  /// ES256 defaults to WebAuthn DER; SM2 defaults to its explicit profile.
+  void verifySync(
+    List<int> message,
+    List<int> signature, {
+    SignatureEncoding? encoding,
+    String? sm2Id,
+    String mlDsaMode = 'pure',
+    List<int> context = const [],
+  }) {
+    if (this is MLDSA && (mlDsaMode != 'pure' || context.isNotEmpty)) {
+      throw ArgumentError('RFC 9964 requires Pure ML-DSA and empty context');
+    }
+    final sm2 = this is SM2 ? (this as SM2).configuration : null;
+    final selectedEncoding =
+        encoding ??
+        sm2?.signatureEncoding ??
+        (this is ES256 ? SignatureEncoding.der : SignatureEncoding.raw);
+    if (!RustCrypto.verify(
+      rustAlgorithm,
+      publicKeyBytes,
+      message,
+      signature,
+      encoding: selectedEncoding.name,
+      sm2Id: sm2Id ?? sm2?.id ?? '1234567812345678',
+      mlDsaMode: mlDsaMode,
+      context: context,
+    )) {
+      throw const CryptoException('invalid_signature');
+    }
+  }
+
+  CborMap toCborMap() => CborMap.fromEntries(
+    entries.map(
+      (e) => MapEntry(
+        CborSmallInt(e.key),
+        _encode(
+          e.value,
+          bytes:
+              e.key == 2 ||
+              e.key == 5 ||
+              (this is _Ec2 && (e.key == -2 || e.key == -3)) ||
+              (this is Ed25519 && e.key == -2) ||
+              (this is MLDSA && e.key == -1),
+        ),
+      ),
+    ),
+  );
+  CborValue toCbor() => toCborMap();
+
+  /// Decode wire bytes with duplicate-label checks before map construction.
+  static CoseKey fromCbor(List<int> bytes, {CoseConfiguration? configuration}) {
+    final value = decodeStrictCbor(bytes);
+    if (value is! CborMap) throw const FormatException('Expected COSE map');
+    return fromCborMap(value, configuration: configuration);
+  }
+
+  static CoseKey fromCborMap(CborMap map, {CoseConfiguration? configuration}) {
+    if (map.tags.isNotEmpty) {
+      throw ArgumentError('Expected an untagged COSE map');
+    }
+    final alg = map[CborSmallInt(3)];
+    final known =
+        alg is CborInt &&
+        (alg.toInt() == -25 ||
+            (configuration ?? CoseConfiguration()).resolve(alg.toInt()) !=
+                null);
+    final params = <int, dynamic>{};
+    for (final entry in map.entries) {
+      if (entry.key is! CborInt || entry.key.tags.isNotEmpty) {
+        throw ArgumentError('COSE labels must be untagged integers');
+      }
+      final label = (entry.key as CborInt).toInt();
+      final value = entry.value;
+      if ({1, 3}.contains(label) || (known && {-1, -2, -3}.contains(label))) {
+        if (value.tags.isNotEmpty) throw ArgumentError('Tagged COSE key field');
+        params[label] = value is CborBytes
+            ? List<int>.from(value.bytes)
+            : value is CborInt
+            ? value.toInt()
+            : value;
+      } else {
+        params[label] = value;
+      }
+    }
+    return parse(params, configuration: configuration);
+  }
+
+  static CoseKey parse(
+    Map<int, dynamic> cose, {
+    CoseConfiguration? configuration,
+  }) {
+    final config = configuration ?? CoseConfiguration();
+    if (cose[3] is! int) throw ArgumentError('COSE alg must be an integer');
+    if (cose[3] == -25) return EcdhEsHkdf256(cose);
+    return switch (config.resolve(cose[3])) {
+      SignatureAlgorithm.es256 => ES256(
+        cose,
+        algorithmId: cose[3],
+        configuration: config,
+      ),
+      SignatureAlgorithm.ed25519 =>
+        cose[3] == EdDSA.algorithm
+            ? EdDSA(cose)
+            : Ed25519(cose, algorithmId: cose[3], configuration: config),
+      SignatureAlgorithm.sm2 => SM2(cose, configuration: config.sm2!),
+      SignatureAlgorithm.mlDsa44 => MLDSA44(
+        cose,
+        algorithmId: cose[3],
+        configuration: config,
+      ),
+      SignatureAlgorithm.mlDsa65 => MLDSA65(
+        cose,
+        algorithmId: cose[3],
+        configuration: config,
+      ),
+      SignatureAlgorithm.mlDsa87 => MLDSA87(
+        cose,
+        algorithmId: cose[3],
+        configuration: config,
+      ),
+      null => UnsupportedKey(cose),
+    };
+  }
+
+  static List<int> supportedAlgorithms({CoseConfiguration? configuration}) => [
+    ES256.algorithm,
+    Ed25519.algorithm,
+    Ed25519.fullySpecifiedAlgorithm,
+    -9,
+    MLDSA44.algorithm,
+    MLDSA65.algorithm,
+    MLDSA87.algorithm,
+    if (configuration?.sm2 != null) configuration!.sm2!.algorithm,
+    ...?configuration?.compatibilityAlgorithms.keys,
+  ];
+  void _field(int label, Object value) {
+    if (this[label] != value) throw ArgumentError('Invalid COSE field $label');
+  }
+
+  void _algorithm(
+    int algorithm,
+    SignatureAlgorithm expected,
+    CoseConfiguration? configuration,
+  ) {
+    if ((configuration ?? CoseConfiguration()).resolve(algorithm) != expected) {
+      throw ArgumentError(
+        'Algorithm does not match key class or explicit configuration',
+      );
+    }
+  }
+
+  void _bytes(int label, int length) {
+    final value = this[label];
+    if (value is! List ||
+        value.length != length ||
+        value.any((b) => b is! int || b < 0 || b > 255)) {
+      throw ArgumentError('COSE field $label must be $length bytes');
     }
   }
 }
 
-/// Represents a COSE key of type ES256 (ECDSA w/ SHA-256, see RFC8152 8.1)
-class ES256 extends CoseKey {
+class UnsupportedKey extends CoseKey {
+  UnsupportedKey(super.params);
+}
+
+abstract class _Ec2 extends CoseKey {
+  _Ec2(super.params, int algorithm, int curve) {
+    _field(1, 2);
+    _field(3, algorithm);
+    _field(-1, curve);
+    _bytes(-2, 32);
+    _bytes(-3, 32);
+    if (containsKey(-4)) {
+      throw ArgumentError('Expected public key, found private material');
+    }
+  }
+  @override
+  List<int> get publicKeyBytes => [
+    4,
+    ...List<int>.from(this[-2]),
+    ...List<int>.from(this[-3]),
+  ];
+}
+
+class ES256 extends _Ec2 {
   static const int algorithm = -7;
-
-  ES256(super.coseKeyParams);
-
-  /// Static method to create a new instance from public key coordinates
-  static ES256 fromPublicKey(List<int> x, List<int> y) {
-    return ES256({
-      CoseKey.ktyIdx: CoseKey.ktyEC2,
-      CoseKey.algIdx: ES256.algorithm,
-      CoseKey.ec2CrvIdx: CoseKey.ec2CrvP256,
-      CoseKey.ec2XIdx: x,
-      CoseKey.ec2YIdx: y,
-    });
+  ES256(
+    Map<int, dynamic> params, {
+    int algorithmId = algorithm,
+    CoseConfiguration? configuration,
+  }) : super(params, algorithmId, 1) {
+    _algorithm(algorithmId, SignatureAlgorithm.es256, configuration);
   }
-
+  static ES256 fromPublicKey(List<int> x, List<int> y) =>
+      ES256({1: 2, 3: algorithm, -1: 1, -2: x, -3: y});
   @override
-  CborMap toCborMap() {
-    return CborMap({
-      CborInt(BigInt.from(CoseKey.ktyIdx)):
-          CborInt(BigInt.from(CoseKey.ktyEC2)),
-      CborInt(BigInt.from(CoseKey.algIdx)):
-          CborInt(BigInt.from(ES256.algorithm)),
-      CborInt(BigInt.from(CoseKey.ec2CrvIdx)):
-          CborInt(BigInt.from(CoseKey.ec2CrvP256)),
-      CborInt(BigInt.from(CoseKey.ec2XIdx)): CborBytes(this[CoseKey.ec2XIdx]),
-      CborInt(BigInt.from(CoseKey.ec2YIdx)): CborBytes(this[CoseKey.ec2YIdx]),
-    });
-  }
-
-  @override
-  Future<void> verify(List<int> message, List<int> signature) async {
-    final xBytes = this[CoseKey.ec2XIdx] as List<int>?;
-    final yBytes = this[CoseKey.ec2YIdx] as List<int>?;
-    if (xBytes == null || yBytes == null) {
-      throw Exception('ES256 verification failed: missing public key x/y.');
-    }
-
-    // Parse ASN.1 DER ECDSA signature: SEQUENCE(INTEGER r, INTEGER s)
-    BigInt bytesToInt(List<int> bytes) =>
-        bytes.fold<BigInt>(BigInt.zero, (a, b) => (a << 8) | BigInt.from(b));
-    final parser = asn1.ASN1Parser(Uint8List.fromList(signature));
-    final obj = parser.nextObject();
-    if (obj is! asn1.ASN1Sequence || obj.elements.length != 2) {
-      throw Exception('ES256 verification failed: malformed DER signature.');
-    }
-    // Reject trailing bytes beyond the DER SEQUENCE
-    // If the parser can continue, the signature contains extra data.
-    if (parser.hasNext()) {
-      throw Exception(
-          'ES256 verification failed: trailing bytes present in DER signature.');
-    }
-    final rObj = obj.elements[0];
-    final sObj = obj.elements[1];
-    if (rObj is! asn1.ASN1Integer || sObj is! asn1.ASN1Integer) {
-      throw Exception(
-          'ES256 verification failed: DER must contain two integers.');
-    }
-    final rBytes = rObj.valueBytes();
-    final sBytes = sObj.valueBytes();
-    final r = bytesToInt(rBytes);
-    var s = bytesToInt(sBytes);
-
-    // Build PointyCastle public key
-    final domain = pc.ECDomainParameters('secp256r1');
-    final q = domain.curve.createPoint(bytesToInt(xBytes), bytesToInt(yBytes));
-    final pubKey = pc.ECPublicKey(q, domain);
-
-    // Low-S normalization to prevent malleability: use s = min(s, n - s)
-    final n = domain.n;
-    final halfN = n >> 1;
-    if (s > halfN) {
-      s = n - s;
-    }
-
-    // Verify using SHA-256/ECDSA
-    final verifier = pc.Signer('SHA-256/ECDSA');
-    verifier.init(false, pc.PublicKeyParameter<pc.ECPublicKey>(pubKey));
-    final ok = verifier.verifySignature(
-        Uint8List.fromList(message), pc.ECSignature(r, s));
-    if (!ok) {
-      throw Exception('Assertion signature verification failed (ES256).');
-    }
-  }
+  String get rustAlgorithm => 'es256';
 }
 
-/// Represents a COSE key of type ECDH-ES+HKDF-256 (see RFC8152 11.1)
-class EcdhEsHkdf256 extends CoseKey {
+class EcdhEsHkdf256 extends _Ec2 {
   static const int algorithm = -25;
-
-  EcdhEsHkdf256(super.coseKeyParams);
-
-  /// Static method to create a new instance from public key coordinates
-  static EcdhEsHkdf256 fromPublicKey(List<int> x, List<int> y) {
-    return EcdhEsHkdf256({
-      CoseKey.ktyIdx: CoseKey.ktyEC2,
-      CoseKey.algIdx: EcdhEsHkdf256.algorithm,
-      CoseKey.ec2CrvIdx: CoseKey.ec2CrvP256,
-      CoseKey.ec2XIdx: x,
-      CoseKey.ec2YIdx: y,
-    });
-  }
-
+  EcdhEsHkdf256(Map<int, dynamic> params) : super(params, algorithm, 1);
+  static EcdhEsHkdf256 fromPublicKey(List<int> x, List<int> y) =>
+      EcdhEsHkdf256({1: 2, 3: algorithm, -1: 1, -2: x, -3: y});
   @override
-  CborMap toCborMap() {
-    return CborMap({
-      CborInt(BigInt.from(CoseKey.ktyIdx)):
-          CborInt(BigInt.from(CoseKey.ktyEC2)),
-      CborInt(BigInt.from(CoseKey.algIdx)):
-          CborInt(BigInt.from(EcdhEsHkdf256.algorithm)),
-      CborInt(BigInt.from(CoseKey.ec2CrvIdx)):
-          CborInt(BigInt.from(CoseKey.ec2CrvP256)),
-      CborInt(BigInt.from(CoseKey.ec2XIdx)): CborBytes(this[CoseKey.ec2XIdx]),
-      CborInt(BigInt.from(CoseKey.ec2YIdx)): CborBytes(this[CoseKey.ec2YIdx]),
-    });
+  String get rustAlgorithm => 'p256';
+  @override
+  void verifySync(
+    List<int> message,
+    List<int> signature, {
+    SignatureEncoding? encoding,
+    String? sm2Id,
+    String mlDsaMode = 'pure',
+    List<int> context = const [],
+  }) => throw UnsupportedError('ECDH is not a signature algorithm');
+}
+
+class Ed25519 extends CoseKey {
+  static const int algorithm = -8;
+  static const int fullySpecifiedAlgorithm = -19;
+  Ed25519(
+    super.params, {
+    int algorithmId = algorithm,
+    CoseConfiguration? configuration,
+  }) {
+    _algorithm(algorithmId, SignatureAlgorithm.ed25519, configuration);
+    _field(1, 1);
+    _field(3, algorithmId);
+    _field(-1, 6);
+    _bytes(-2, 32);
+    if (containsKey(-4)) throw ArgumentError('Expected public key');
   }
+  static Ed25519 fromPublicKey(List<int> key, {int algorithmId = algorithm}) =>
+      Ed25519({1: 1, 3: algorithmId, -1: 6, -2: key}, algorithmId: algorithmId);
+  @override
+  String get rustAlgorithm => 'ed25519';
+  @override
+  List<int> get publicKeyBytes => List<int>.from(this[-2]);
+}
+
+class EdDSA extends Ed25519 {
+  static const int algorithm = -8;
+  EdDSA(super.params);
+  static EdDSA fromPublicKey(List<int> key) =>
+      EdDSA({1: 1, 3: algorithm, -1: 6, -2: key});
+}
+
+class SM2 extends _Ec2 {
+  final Sm2Configuration configuration;
+  SM2(Map<int, dynamic> params, {required this.configuration})
+    : super(params, configuration.algorithm, configuration.curve);
+  static SM2 fromPublicKey(
+    List<int> x,
+    List<int> y, {
+    required Sm2Configuration configuration,
+  }) => SM2({
+    1: 2,
+    3: configuration.algorithm,
+    -1: configuration.curve,
+    -2: x,
+    -3: y,
+  }, configuration: configuration);
+  @override
+  String get rustAlgorithm => 'sm2';
+}
+
+abstract class MLDSA extends CoseKey {
+  final int parameterSet;
+  MLDSA(super.params, int algorithm, this.parameterSet, int length) {
+    _field(1, 7);
+    _field(3, algorithm);
+    _bytes(-1, length);
+    if (containsKey(-2)) throw ArgumentError('Expected public ML-DSA key');
+  }
+  @override
+  String get rustAlgorithm => 'ml-dsa-$parameterSet';
+  @override
+  List<int> get publicKeyBytes => List<int>.from(this[-1]);
+}
+
+class MLDSA44 extends MLDSA {
+  static const int algorithm = -48;
+  MLDSA44(
+    Map<int, dynamic> params, {
+    int algorithmId = algorithm,
+    CoseConfiguration? configuration,
+  }) : super(params, algorithmId, 44, 1312) {
+    _algorithm(algorithmId, SignatureAlgorithm.mlDsa44, configuration);
+  }
+  static MLDSA44 fromPublicKey(List<int> key) =>
+      MLDSA44({1: 7, 3: algorithm, -1: key});
+}
+
+class MLDSA65 extends MLDSA {
+  static const int algorithm = -49;
+  MLDSA65(
+    Map<int, dynamic> params, {
+    int algorithmId = algorithm,
+    CoseConfiguration? configuration,
+  }) : super(params, algorithmId, 65, 1952) {
+    _algorithm(algorithmId, SignatureAlgorithm.mlDsa65, configuration);
+  }
+  static MLDSA65 fromPublicKey(List<int> key) =>
+      MLDSA65({1: 7, 3: algorithm, -1: key});
+}
+
+class MLDSA87 extends MLDSA {
+  static const int algorithm = -50;
+  MLDSA87(
+    Map<int, dynamic> params, {
+    int algorithmId = algorithm,
+    CoseConfiguration? configuration,
+  }) : super(params, algorithmId, 87, 2592) {
+    _algorithm(algorithmId, SignatureAlgorithm.mlDsa87, configuration);
+  }
+  static MLDSA87 fromPublicKey(List<int> key) =>
+      MLDSA87({1: 7, 3: algorithm, -1: key});
 }

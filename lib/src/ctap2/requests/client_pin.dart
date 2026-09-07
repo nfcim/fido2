@@ -1,6 +1,7 @@
 import 'package:cbor/cbor.dart';
 import 'package:fido2/src/cose.dart';
 import '../constants.dart';
+import '../serialization.dart';
 import 'package:fido2/src/utils/serialization.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -125,16 +126,17 @@ class ClientPinResponse with JsonToStringMixin {
 
   /// Decodes a CBOR-encoded response into [ClientPinResponse].
   static ClientPinResponse decode(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
-    final keyAgreementMap =
-        (map[keyAgreementIdx] as Map?)?.cast<int, dynamic>();
+    final encoded = ctapResponseMap(data);
+    final keyAgreementMap = cborField<CborMap>(encoded, keyAgreementIdx);
     return ClientPinResponse(
-      keyAgreement:
-          keyAgreementMap != null ? CoseKey.parse(keyAgreementMap) : null,
-      pinUvAuthToken: (map[pinUvAuthTokenIdx] as List?)?.cast<int>(),
-      pinRetries: map[pinRetriesIdx] as int?,
-      powerCycleState: map[powerCycleStateIdx] as bool?,
-      uvRetries: map[uvRetriesIdx] as int?,
+      keyAgreement: keyAgreementMap != null
+          ? CoseKey.fromCborMap(keyAgreementMap)
+          : null,
+      pinUvAuthToken: cborField<CborBytes>(encoded, pinUvAuthTokenIdx)?.bytes,
+      pinRetries: cborField<CborInt>(encoded, pinRetriesIdx)?.toInt(),
+      powerCycleState:
+          cborField<CborBool>(encoded, powerCycleStateIdx)?.toObject() as bool?,
+      uvRetries: cborField<CborInt>(encoded, uvRetriesIdx)?.toInt(),
     );
   }
 

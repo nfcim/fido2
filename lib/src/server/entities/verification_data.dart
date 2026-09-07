@@ -20,13 +20,29 @@ class VerificationResult with JsonToStringMixin {
   /// Raw authenticator data bytes that were verified (optional but useful).
   final Uint8List authenticatorData;
 
+  final bool backupEligible;
+  final bool backedUp;
+
   VerificationResult({
     required this.userPresent,
     required this.userVerified,
     required this.signCount,
     required this.authenticatorData,
+    this.backupEligible = false,
+    this.backedUp = false,
   });
 
   @override
   Map<String, dynamic> toJson() => _$VerificationResultToJson(this);
+}
+
+/// Verified state to persist atomically after successful authentication.
+@JsonSerializable(createFactory: false, explicitToJson: true)
+class AuthenticationResult with JsonToStringMixin {
+  @override
+  Map<String, dynamic> toJson() => _$AuthenticationResultToJson(this);
+
+  final int signCount;
+  final bool backedUp;
+  const AuthenticationResult({required this.signCount, required this.backedUp});
 }

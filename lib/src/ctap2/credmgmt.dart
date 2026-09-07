@@ -210,7 +210,8 @@ class CredentialManagement {
   Future<CmCredential> enumerateCredentialsGetNextCredential() async {
     final resp = await _invoke(
       CredentialManagementSubCommand
-          .enumerateCredentialsGetNextCredential.value,
+          .enumerateCredentialsGetNextCredential
+          .value,
       auth: false,
     );
     if (resp.status != 0) {
@@ -276,10 +277,11 @@ class CredentialManagement {
   }
 
   Future<CmCredentialMetadata>
-      _enumerateCredentialsMetadataOnlyGetNextCredential() async {
+  _enumerateCredentialsMetadataOnlyGetNextCredential() async {
     final resp = await _invoke(
       CredentialManagementSubCommand
-          .enumerateCredentialsGetNextCredential.value,
+          .enumerateCredentialsGetNextCredential
+          .value,
       auth: false,
     );
     if (resp.status != 0) {
@@ -294,7 +296,8 @@ class CredentialManagement {
   }) {
     final publicKey = response.publicKey;
     final metadataOnly = publicKey == null && response.coseAlgorithm != null;
-    final coseAlgorithm = publicKey?[CoseKey.algIdx] as int? ??
+    final coseAlgorithm =
+        publicKey?[CoseKey.algIdx] as int? ??
         (metadataOnly ? response.coseAlgorithm : null);
     if (coseAlgorithm == null) {
       throw const FormatException(
@@ -319,8 +322,8 @@ class CredentialManagement {
     final resp = await _invoke(
       CredentialManagementSubCommand.deleteCredential.value,
       params: {
-        CredentialManagementSubCommandParams.credentialId.value:
-            credentialId.toCbor(),
+        CredentialManagementSubCommandParams.credentialId.value: credentialId
+            .toCbor(),
       },
     );
     if (resp.status != 0) {
@@ -335,8 +338,8 @@ class CredentialManagement {
     final resp = await _invoke(
       CredentialManagementSubCommand.updateUserInformation.value,
       params: {
-        CredentialManagementSubCommandParams.credentialId.value:
-            credentialId.toCbor(),
+        CredentialManagementSubCommandParams.credentialId.value: credentialId
+            .toCbor(),
         CredentialManagementSubCommandParams.user.value: user.toCbor(),
       },
     );
@@ -366,7 +369,7 @@ class CredentialManagement {
       if (paramsMap != null) {
         msg.addAll(cbor.encode(paramsMap));
       }
-      pinUvAuthParam = await _pinProtocol.authenticate(_pinToken, msg);
+      pinUvAuthParam = await _pinProtocol.authenticateParam(_pinToken, msg);
     }
     return await _ctap.credentialManagement(
       CredentialManagementRequest(

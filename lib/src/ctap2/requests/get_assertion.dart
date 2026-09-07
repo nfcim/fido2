@@ -1,4 +1,5 @@
 import 'package:cbor/cbor.dart';
+import '../serialization.dart';
 import '../constants.dart';
 import '../entities/credential_entities.dart';
 import 'package:fido2/src/utils/serialization.dart';
@@ -126,7 +127,7 @@ class GetAssertionResponse with JsonToStringMixin {
 
   /// Decodes a CBOR-encoded response into [GetAssertionResponse].
   static GetAssertionResponse decode(List<int> data) {
-    final map = cbor.decode(data).toObject() as Map;
+    final map = ctapResponseMap(data).toObject() as Map;
     final credentialMap = map[credentialIdx] as Map?;
     return GetAssertionResponse(
       credential: PublicKeyCredentialDescriptor(

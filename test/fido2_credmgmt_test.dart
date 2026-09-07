@@ -1,8 +1,10 @@
 import 'package:cbor/cbor.dart';
 import 'package:fido2/fido2.dart';
 import 'package:test/test.dart';
+import 'support.dart';
 
 void main() {
+  setUpAll(initializeCrypto);
   final rpIdHash = List<int>.generate(32, (index) => index);
   final pinToken = List<int>.generate(32, (index) => 0xa0 + index);
 
@@ -48,7 +50,10 @@ void main() {
       ];
       expect(
         begin[4],
-        await pinProtocol.authenticate(pinToken, authenticationMessage),
+        (await pinProtocol.authenticate(
+          pinToken,
+          authenticationMessage,
+        )).sublist(0, 16),
       );
 
       final getNext = _decodeRequest(device.commands[2]);
@@ -102,7 +107,7 @@ List<int> _credentialResponse({
       'type': 'public-key',
       'id': CborBytes([0x40 + userId.single]),
     },
-    if (totalCredentials != null) 9: totalCredentials,
+    9: ?totalCredentials,
     10: 1,
   };
   if (metadataOnly) {

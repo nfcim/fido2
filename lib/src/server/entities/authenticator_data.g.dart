@@ -7,12 +7,12 @@ part of 'authenticator_data.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$AttestedCredentialDataToJson(
-        AttestedCredentialData instance) =>
-    <String, dynamic>{
-      'aaguid': instance.aaguid,
-      'credentialId': instance.credentialId,
-      'credentialPublicKey': instance.credentialPublicKey.toJson(),
-    };
+  AttestedCredentialData instance,
+) => <String, dynamic>{
+  'aaguid': instance.aaguid,
+  'credentialId': instance.credentialId,
+  'credentialPublicKey': instance.credentialPublicKey.toJson(),
+};
 
 Map<String, dynamic> _$AuthenticatorDataToJson(AuthenticatorData instance) =>
     <String, dynamic>{
@@ -21,6 +21,8 @@ Map<String, dynamic> _$AuthenticatorDataToJson(AuthenticatorData instance) =>
       'signCount': instance.signCount,
       'attestedCredentialData': instance.attestedCredentialData?.toJson(),
       'extensions': instance.extensions?.toJson(),
+      'backupEligible': instance.backupEligible,
+      'backedUp': instance.backedUp,
       'userPresent': instance.userPresent,
       'userVerified': instance.userVerified,
       'hasAttestedCredentialData': instance.hasAttestedCredentialData,

@@ -17,3 +17,5 @@ export 'src/ctap2/requests/credential_mgmt.dart';
 export 'src/ctap2/requests/get_assertion.dart';
 export 'src/ctap2/requests/get_info.dart';
 export 'src/ctap2/requests/make_credential.dart';
+
+export 'src/crypto/crypto.dart';
