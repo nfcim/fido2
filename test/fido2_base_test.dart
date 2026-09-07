@@ -31,6 +31,39 @@ void main() {
   });
 
   group('MakeCredential', () {
+    test('enterprise attestation modes and boolean API', () {
+      for (final (legacy, mode, expected)
+          in <(bool?, EnterpriseAttestationMode?, int?)>[
+            (null, null, null),
+            (false, null, null),
+            (true, null, 1),
+            (null, EnterpriseAttestationMode.vendorFacilitated, 1),
+            (null, EnterpriseAttestationMode.platformManaged, 2),
+            (false, EnterpriseAttestationMode.platformManaged, 2),
+          ]) {
+        final request = MakeCredentialRequest(
+          clientDataHash: List.filled(32, 0),
+          rp: PublicKeyCredentialRpEntity(id: 'example.com'),
+          user: PublicKeyCredentialUserEntity(id: [1]),
+          pubKeyCredParams: [
+            {'type': 'public-key', 'alg': -7},
+          ],
+          enterpriseAttestation: legacy,
+          enterpriseAttestationMode: mode,
+        );
+        final map = cbor.decode(request.encode().sublist(1)) as CborMap;
+        final field = map[CborSmallInt(10)];
+        if (expected == null) {
+          expect(map.containsKey(CborSmallInt(10)), isFalse);
+        } else {
+          expect(field, isA<CborInt>());
+          expect((field as CborInt).toInt(), expected);
+        }
+        expect(request.enterpriseAttestation, legacy);
+        expect(request.toJson()['enterpriseAttestationMode'], mode?.value);
+      }
+    });
+
     test('Request', () {
       var request = MakeCredentialRequest(
         clientDataHash: List.filled(32, 0x01),

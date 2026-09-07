@@ -11,13 +11,17 @@ import 'config.dart';
 import '../strict_cbor.dart';
 
 String _b64(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
-List<int> _decode(Object? value) {
+List<int> _decode(Object? value, {int maxLength = 65536}) {
   if (value is! String ||
-      value.length > 350000 ||
+      value.length > ((maxLength + 2) ~/ 3) * 4 ||
       !RegExp(r'^[A-Za-z0-9_-]*={0,2}$').hasMatch(value)) {
     throw const FormatException('Expected base64url bytes');
   }
-  return base64Url.decode(base64Url.normalize(value));
+  final bytes = base64Url.decode(base64Url.normalize(value));
+  if (bytes.length > maxLength) {
+    throw const FormatException('WebAuthn field exceeds its byte limit');
+  }
+  return bytes;
 }
 
 /// WebAuthn server ceremonies. Callers must store challenges server-side,
@@ -27,10 +31,19 @@ class Fido2Server {
   final Fido2Config config;
   Fido2Server(this.config);
 
+  /// Creates options with a 1-64 byte user ID and non-null user names.
   RegistrationRequest registerBegin(
     PublicKeyCredentialUserEntity user, {
     List<int>? challenge,
   }) {
+    if (user.id.isEmpty ||
+        user.id.length > 64 ||
+        user.id.any((byte) => byte < 0 || byte > 255)) {
+      throw ArgumentError.value(user.id, 'user.id', 'Expected 1 to 64 bytes');
+    }
+    if (user.name == null || user.displayName == null) {
+      throw ArgumentError('Registration requires name and displayName');
+    }
     final nonce = List<int>.unmodifiable(
       challenge ?? RustCrypto.randomBytes(32),
     );
@@ -163,14 +176,16 @@ class Fido2Server {
       'webauthn.create',
       expectedChallenge,
     );
-    final object = decodeStrictCbor(_decode(response['attestationObject']));
+    final object = decodeStrictCbor(
+      _decode(response['attestationObject'], maxLength: 65536 + 1024),
+    );
     if (object is! CborMap ||
         object.tags.isNotEmpty ||
         object[CborString('fmt')] != CborString('none') ||
         object[CborString('attStmt')] is! CborMap ||
         (object[CborString('attStmt')] as CborMap).isNotEmpty) {
-      throw UnsupportedError(
-        'Only none attestation is supported; attestation trust is not verified',
+      throw const FormatException(
+        'Supported attestation format: none with an empty statement',
       );
     }
     final encodedData = object[CborString('authData')];
@@ -239,7 +254,7 @@ class Fido2Server {
     )) {
       throw const FormatException('Unexpected credential');
     }
-    return _authenticateResponse(
+    final result = _authenticateResponse(
       response,
       publicKey: credential.publicKey,
       storedSignCount: credential.signCount,
@@ -249,9 +264,13 @@ class Fido2Server {
       expectedUserHandle: expectedUserHandle,
       requireUserHandle: requireUserHandle,
     );
+    return AuthenticationResult(
+      signCount: result.signCount,
+      backedUp: result.backedUp,
+    );
   }
 
-  AuthenticationResult _authenticateResponse(
+  VerificationResult _authenticateResponse(
     Map<String, dynamic> response, {
     required CoseKey publicKey,
     required int storedSignCount,
@@ -300,7 +319,9 @@ class Fido2Server {
     final algorithm = publicKey.algorithmId;
     if (!config.signatureAlgorithms.contains(algorithm) ||
         config.cose.resolve(algorithm) == null) {
-      throw UnsupportedError('Credential signature algorithm is not allowed');
+      throw const FormatException(
+        'Credential signature algorithm is not allowed',
+      );
     }
     // Reparse persisted keys with this server's trusted profile and algorithm mapping.
     final key = CoseKey.fromCborMap(
@@ -315,8 +336,12 @@ class Fido2Server {
         data.signCount <= storedSignCount) {
       throw const FormatException('Signature counter did not increase');
     }
-    return AuthenticationResult(
+    return VerificationResult(
+      userPresent: data.userPresent,
+      userVerified: data.userVerified,
       signCount: data.signCount,
+      authenticatorData: data.bytes,
+      backupEligible: data.backupEligible,
       backedUp: data.backedUp,
     );
   }
@@ -367,6 +392,7 @@ class Fido2Server {
     );
   }
 
+  /// Verifies an assertion and reports failures through the returned Future.
   Future<VerificationResult> completeVerification(
     String clientDataBase64,
     String authenticatorDataBase64,
@@ -383,7 +409,7 @@ class Fido2Server {
       credentialPublicKeyCbor,
       configuration: config.cose,
     );
-    final result = _authenticateResponse(
+    return _authenticateResponse(
       {
         'clientDataJSON': clientDataBase64,
         'authenticatorData': authenticatorDataBase64,
@@ -396,15 +422,6 @@ class Fido2Server {
       expectedChallenge: _decode(expectedChallenge),
       expectedUserHandle: expectedUserHandle,
       requireUserHandle: requireUserHandle,
-    );
-    final bytes = Uint8List.fromList(_decode(authenticatorDataBase64));
-    return VerificationResult(
-      userPresent: bytes[32] & 1 != 0,
-      userVerified: bytes[32] & 4 != 0,
-      signCount: result.signCount,
-      authenticatorData: bytes,
-      backupEligible: bytes[32] & 8 != 0,
-      backedUp: result.backedUp,
     );
   }
 }

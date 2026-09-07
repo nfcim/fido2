@@ -14,6 +14,7 @@ part 'pin.g.dart';
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class EncapsulateResult with JsonToStringMixin {
   final CoseKey coseKey;
+  @JsonKey(includeToJson: false)
   final List<int> sharedSecret;
 
   EncapsulateResult(this.coseKey, this.sharedSecret);
@@ -32,8 +33,8 @@ sealed class PinProtocol {
 
   Future<List<int>> authenticate(List<int> key, List<int> message);
 
-  /// CTAP wire MAC: v1 transmits 16 bytes, v2 transmits 32. The existing
-  /// [authenticate] API continues to return the full HMAC for compatibility.
+  /// CTAP wire MAC: 16 bytes for v1, 32 bytes for v2.
+  /// [authenticate] returns the full 32-byte HMAC.
   Future<List<int>> authenticateParam(List<int> key, List<int> message) async {
     final mac = await authenticate(key, message);
     return version == 1 ? mac.sublist(0, 16) : mac;

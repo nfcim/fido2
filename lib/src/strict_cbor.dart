@@ -1,4 +1,36 @@
+import 'dart:convert';
 import 'package:cbor/cbor.dart';
+
+int cborExactInt(CborInt value) {
+  final integer = value.toInt();
+  if (BigInt.from(integer) != value.toBigInt()) {
+    throw const FormatException('CBOR integer exceeds the Dart int range');
+  }
+  return integer;
+}
+
+String _keyIdentity(CborValue value) {
+  final String content;
+  if (value is CborMap) {
+    final entries =
+        value.entries
+            .map((e) => '[${_keyIdentity(e.key)},${_keyIdentity(e.value)}]')
+            .toList()
+          ..sort();
+    content = '"map",[${entries.join(',')}]';
+  } else if (value is CborList) {
+    content = '"array",[${value.map(_keyIdentity).join(',')}]';
+  } else if (value is CborInt) {
+    content = '"integer",${jsonEncode(value.toBigInt().toString())}';
+  } else if (value is CborBytes) {
+    content = '"bytes",${jsonEncode(base64.encode(value.bytes))}';
+  } else if (value is CborString) {
+    content = '"text",${jsonEncode(value.toString())}';
+  } else {
+    content = '"value",${jsonEncode(base64.encode(cbor.encode(value)))}';
+  }
+  return '[${jsonEncode(value.tags)},$content]';
+}
 
 /// Checks map keys before the CBOR decoder collapses them into a Dart Map.
 /// Value decoding remains the responsibility of package:cbor.
@@ -9,6 +41,13 @@ int checkCborItem(List<int> bytes, [int offset = 0, int depth = 0]) {
   final initial = bytes[offset++];
   final major = initial >> 5;
   final info = initial & 31;
+  if (depth == 64 &&
+      (major == 4 ||
+          major == 5 ||
+          major == 6 ||
+          ((major == 2 || major == 3) && info == 31))) {
+    throw const FormatException('CBOR nesting exceeds 64 levels');
+  }
   if (info >= 28 && info != 31 || initial == 255) {
     throw const FormatException('Invalid CBOR header');
   }
@@ -35,7 +74,7 @@ int checkCborItem(List<int> bytes, [int offset = 0, int depth = 0]) {
   if ((major == 2 || major == 3) && !indefinite) {
     return offset + argument.toInt();
   }
-  final keys = <CborValue>{};
+  final keys = <String>{};
   var remaining = indefinite ? -1 : argument.toInt();
   while (remaining != 0) {
     if (offset >= bytes.length) {
@@ -46,7 +85,9 @@ int checkCborItem(List<int> bytes, [int offset = 0, int depth = 0]) {
     offset = checkCborItem(bytes, offset, depth + 1);
     if (major == 5) {
       final key = cbor.decode(bytes.sublist(start, offset));
-      if (!keys.add(key)) throw const FormatException('Duplicate CBOR label');
+      if (!keys.add(_keyIdentity(key))) {
+        throw const FormatException('Duplicate CBOR label');
+      }
       offset = checkCborItem(bytes, offset, depth + 1);
     }
     if (!indefinite) remaining--;

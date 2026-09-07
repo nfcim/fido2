@@ -42,7 +42,7 @@ void main() {
       final credentialId = Uint8List.fromList([1, 2, 3, 4]);
       final credentialPublicKey = CborMap({
         CborSmallInt(1): CborSmallInt(2),
-        CborSmallInt(3): CborBytes(Uint8List.fromList([4, 5, 6])),
+        CborSmallInt(3): CborSmallInt(-60000),
       });
 
       final builder = BytesBuilder()
@@ -111,7 +111,10 @@ void main() {
       final signCount = 123;
       final aaguid = Uint8List(16)..fillRange(0, 16, 6);
       final credentialId = Uint8List.fromList([5, 6, 7, 8]);
-      final credentialPublicKey = CborMap({CborSmallInt(1): CborSmallInt(2)});
+      final credentialPublicKey = CborMap({
+        CborSmallInt(1): CborSmallInt(2),
+        CborSmallInt(3): CborSmallInt(-60000),
+      });
       final extensions = CborMap({
         CborString('extKey'): CborString('extValue'),
       });

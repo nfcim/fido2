@@ -28,7 +28,7 @@ class CredentialManagementRequest with JsonToStringMixin {
   /// PIN/UV protocol version chosen by the platform.
   final int? pinUvAuthProtocol;
 
-  /// HMAC-SHA-256 (first 16 bytes) over contents using pinUvAuthToken.
+  /// HMAC-SHA-256 using pinUvAuthToken: 16 bytes for PIN v1, 32 for v2.
   final List<int>? pinUvAuthParam;
 
   CredentialManagementRequest({

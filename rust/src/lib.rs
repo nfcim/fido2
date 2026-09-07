@@ -173,10 +173,14 @@ fn verify(r: &Request) -> Result<bool> {
 }
 
 pub fn execute(r: &Request) -> Result<Vec<u8>> {
-    if [&r.key, &r.message, &r.signature, &r.iv, &r.salt, &r.info]
+    if [&r.key, &r.signature, &r.iv, &r.salt, &r.info]
         .iter()
         .any(|bytes| bytes.len() > 65536)
     {
+        return Err("invalid_length");
+    }
+    let message_limit = if r.op == "verify" { 65568 } else { 65536 };
+    if r.message.len() > message_limit {
         return Err("invalid_length");
     }
     match r.op.as_str() {

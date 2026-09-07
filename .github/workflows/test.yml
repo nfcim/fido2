@@ -27,9 +27,14 @@ jobs:
           workspaces: rust
       - run: dart pub get
       - name: Check generated files
+        if: runner.os == 'Linux' && matrix.sdk == 'stable'
         run: |
           dart run build_runner build
-          git diff --exit-code -- '*.g.dart'
+          changes=$(git status --porcelain --untracked-files=all -- '*.g.dart')
+          if [ -n "$changes" ]; then
+            printf '%s\n' "$changes"
+            exit 1
+          fi
       - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze
       - run: cargo fmt --manifest-path rust/Cargo.toml --check
@@ -43,7 +48,7 @@ jobs:
         if: runner.os == 'Linux'
       - run: dart run tool/test.dart -p chrome
         if: runner.os == 'Linux'
-      - run: dart run tool/test.dart -p chrome -c dart2wasm test/crypto_test.dart test/webauthn_test.dart test/initialization_test.dart test/fido2_base_test.dart test/cbor_boundaries_test.dart test/fido2_server_auth_data_test.dart test/fido2_credmgmt_test.dart
+      - run: dart run tool/test.dart -p chrome -c dart2wasm test/crypto_test.dart test/webauthn_test.dart test/initialization_test.dart test/fido2_base_test.dart test/cbor_boundaries_test.dart test/fido2_server_auth_data_test.dart test/fido2_credmgmt_test.dart test/api_compatibility_test.dart
         if: runner.os == 'Linux'
       - run: dart doc
       - name: Upload generated dartdoc

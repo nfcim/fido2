@@ -23,10 +23,11 @@ class AttestedCredentialData with JsonToStringMixin {
   final CborMap credentialPublicKey;
 
   AttestedCredentialData({
-    required this.aaguid,
-    required this.credentialId,
+    required Uint8List aaguid,
+    required Uint8List credentialId,
     required this.credentialPublicKey,
-  });
+  }) : aaguid = Uint8List.fromList(aaguid).asUnmodifiableView(),
+       credentialId = Uint8List.fromList(credentialId).asUnmodifiableView();
 
   @override
   Map<String, dynamic> toJson() => _$AttestedCredentialDataToJson(this);
@@ -34,9 +35,6 @@ class AttestedCredentialData with JsonToStringMixin {
 
 /// A structured representation of the `authenticatorData` buffer returned
 /// by an authenticator.
-///
-/// It provides a safe way to parse and access the different fields of the
-/// authenticator data.
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class AuthenticatorData with JsonToStringMixin {
   /// The SHA-256 hash of the RP ID.
@@ -57,6 +55,9 @@ class AuthenticatorData with JsonToStringMixin {
   @JsonKey(includeToJson: false)
   final Uint8List bytes;
   final CoseConfiguration? _configuration;
+  CoseKey? _parsedKey;
+  @JsonKey(includeToJson: false)
+  List<int>? get aaguid => attestedCredentialData?.aaguid;
   bool get backupEligible => flags & 8 != 0;
   bool get backedUp => flags & 16 != 0;
   @JsonKey(includeToJson: false)
@@ -64,20 +65,21 @@ class AuthenticatorData with JsonToStringMixin {
   @JsonKey(includeToJson: false)
   CoseKey? get credentialPublicKey => attestedCredentialData == null
       ? null
-      : CoseKey.fromCborMap(
+      : _parsedKey ??= CoseKey.fromCborMap(
           attestedCredentialData!.credentialPublicKey,
           configuration: _configuration,
         );
 
   AuthenticatorData({
-    required this.rpIdHash,
+    required Uint8List rpIdHash,
     required this.flags,
     required this.signCount,
     this.attestedCredentialData,
     this.extensions,
     Uint8List? bytes,
     CoseConfiguration? configuration,
-  }) : bytes = bytes ?? Uint8List(0),
+  }) : rpIdHash = Uint8List.fromList(rpIdHash).asUnmodifiableView(),
+       bytes = Uint8List.fromList(bytes ?? []).asUnmodifiableView(),
        _configuration = configuration;
 
   /// User Present flag (bit 0).
@@ -118,7 +120,7 @@ class AuthenticatorData with JsonToStringMixin {
       }
       final result = bytes.sublist(offset, offset + length);
       offset += length;
-      return result;
+      return result.asUnmodifiableView();
     }
 
     CborMap readMap() {
@@ -155,7 +157,7 @@ class AuthenticatorData with JsonToStringMixin {
     if (offset != bytes.length) {
       throw const FormatException('Trailing authenticator data');
     }
-    return AuthenticatorData(
+    final result = AuthenticatorData(
       rpIdHash: bytes.sublist(0, 32),
       flags: flags,
       signCount: signCount,
@@ -164,6 +166,8 @@ class AuthenticatorData with JsonToStringMixin {
       bytes: bytes,
       configuration: configuration,
     );
+    result.credentialPublicKey;
+    return result;
   }
 
   @override

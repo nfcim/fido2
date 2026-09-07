@@ -7,6 +7,16 @@ import '../entities/credential_entities.dart';
 
 part 'make_credential.g.dart';
 
+enum EnterpriseAttestationMode {
+  @JsonValue(1)
+  vendorFacilitated(1),
+  @JsonValue(2)
+  platformManaged(2);
+
+  const EnterpriseAttestationMode(this.value);
+  final int value;
+}
+
 /// CTAP2 authenticatorMakeCredential (0x01) request (spec §6.1).
 ///
 /// Requests generation of a new credential bound to an RP and user. Several
@@ -45,14 +55,20 @@ class MakeCredentialRequest with JsonToStringMixin {
   /// Additional boolean options (rk/up/uv) for operation.
   final Map<String, bool>? options;
 
-  /// Result of authenticate(pinUvAuthToken, clientDataHash), if present.
+  /// Result of authenticateParam(pinUvAuthToken, clientDataHash):
+  /// 16 bytes for PIN v1, 32 bytes for PIN v2.
   final List<int>? pinAuth;
 
   /// PIN/UV protocol version selected by the platform.
   final int? pinProtocol;
 
-  /// Request enterprise attestation behavior if supported.
+  /// true selects vendor-facilitated attestation; false or null omits it.
+  /// [enterpriseAttestationMode] takes precedence when supplied.
   final bool? enterpriseAttestation;
+
+  /// CTAP enterprise attestation mode (1 or 2).
+  @JsonKey(includeIfNull: false)
+  final EnterpriseAttestationMode? enterpriseAttestationMode;
 
   MakeCredentialRequest({
     required this.clientDataHash,
@@ -65,6 +81,7 @@ class MakeCredentialRequest with JsonToStringMixin {
     this.pinAuth,
     this.pinProtocol,
     this.enterpriseAttestation,
+    this.enterpriseAttestationMode,
   });
 
   /// Encodes this request as a CBOR map and prefixes the command byte.
@@ -91,8 +108,13 @@ class MakeCredentialRequest with JsonToStringMixin {
     if (pinProtocol != null) {
       map[pinProtocolIdx] = pinProtocol!;
     }
-    if (enterpriseAttestation != null) {
-      map[enterpriseAttestationIdx] = enterpriseAttestation!;
+    final mode =
+        enterpriseAttestationMode ??
+        (enterpriseAttestation == true
+            ? EnterpriseAttestationMode.vendorFacilitated
+            : null);
+    if (mode != null) {
+      map[enterpriseAttestationIdx] = mode.value;
     }
     return [Ctap2Commands.makeCredential.value] + cbor.encode(CborValue(map));
   }
@@ -138,13 +160,20 @@ class MakeCredentialResponse with JsonToStringMixin {
 
   /// Decodes a CBOR-encoded response into [MakeCredentialResponse].
   static MakeCredentialResponse decode(List<int> data) {
-    final map = ctapResponseMap(data).toObject() as Map;
+    final map = ctapResponseMap(data);
+    final statement = cborField<CborMap>(map, attStmtIdx, required: true)!;
+    if (statement.keys.any((key) => key is! CborString)) {
+      throw const FormatException('Expected attestation statement text keys');
+    }
     return MakeCredentialResponse(
-      fmt: map[fmtIdx] as String,
-      authData: (map[authDataIdx] as List?)?.cast<int>() ?? [],
-      attStmt: (map[attStmtIdx] as Map?)?.cast<String, dynamic>() ?? {},
-      epAtt: map[epAttIdx] as bool?,
-      largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
+      fmt: cborField<CborString>(map, fmtIdx, required: true)!.toString(),
+      authData: cborField<CborBytes>(map, authDataIdx, required: true)!.bytes,
+      attStmt: {
+        for (final entry in statement.entries)
+          entry.key.toString(): entry.value.toObject(),
+      },
+      epAtt: cborField<CborBool>(map, epAttIdx)?.toObject() as bool?,
+      largeBlobKey: cborField<CborBytes>(map, largeBlobKeyIdx)?.bytes,
     );
   }
 

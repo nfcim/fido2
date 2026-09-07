@@ -4,6 +4,175 @@ import 'package:fido2/src/strict_cbor.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('compound labels, integer range and nesting boundaries', () {
+    for (final pair in [
+      [
+        [0x81, 1],
+        [0x9f, 1, 0xff],
+      ],
+      [
+        [0xa2, 1, 2, 3, 4],
+        [0xa2, 3, 4, 1, 2],
+      ],
+    ]) {
+      expect(
+        () => decodeStrictCbor([0xa2, ...pair[0], 0, ...pair[1], 1]),
+        throwsFormatException,
+      );
+    }
+    final nestedKey = [...List.filled(63, 0x81), 0];
+    expect(
+      () => decodeStrictCbor([0xa2, ...nestedKey, 0, ...nestedKey, 1]),
+      throwsFormatException,
+    );
+    for (final label in [1, 3, -1]) {
+      final key = CborMap({
+        CborSmallInt(1): CborSmallInt(2),
+        CborSmallInt(3): CborSmallInt(-7),
+        CborSmallInt(label): CborInt(BigInt.parse('18446744073709551615')),
+      });
+      expect(() => CoseKey.fromCborMap(key), throwsFormatException);
+    }
+    expect(
+      () => CoseKey.fromCborMap(
+        CborMap({
+          CborInt(BigInt.parse('18446744073709551615')): CborSmallInt(0),
+        }),
+      ),
+      throwsFormatException,
+    );
+    expect(decodeStrictCbor([...List.filled(64, 0x81), 0]), isA<CborList>());
+    for (final leaf in [0, 0x80]) {
+      expect(
+        () => decodeStrictCbor([...List.filled(65, 0x81), leaf]),
+        throwsFormatException,
+      );
+    }
+    expect(
+      () => decodeStrictCbor([...List.filled(64, 0x81), 0x80]),
+      throwsFormatException,
+    );
+  });
+
+  test('getInfo validates field and element types', () {
+    final valid = <int, dynamic>{
+      1: ['FIDO_2_1'],
+      3: CborBytes(List.filled(16, 0)),
+    };
+    for (final entry in <int, dynamic>{
+      1: [1],
+      2: [1],
+      3: List.filled(16, 0),
+      4: {'rk': 1},
+      5: '1024',
+      6: ['2'],
+      9: [1],
+      10: [
+        {'type': 1, 'alg': -7},
+      ],
+      12: 1,
+      19: {'FIDO': '1'},
+      21: ['1'],
+    }.entries) {
+      expect(
+        () => AuthenticatorInfo.decode(
+          cbor.encode(CborValue({...valid, entry.key: entry.value})),
+        ),
+        throwsFormatException,
+      );
+    }
+    expect(
+      () => AuthenticatorInfo.decode(
+        cbor.encode(
+          CborValue({
+            ...valid,
+            3: CborBytes([1]),
+          }),
+        ),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('malformed COSE wire fields report format errors', () {
+    final wire = cbor.encode(CborValue({1: 2, 3: -7, -1: 1}));
+    expect(() => CoseKey.fromCbor(wire), throwsFormatException);
+    expect(
+      () => CoseKey.fromCborMap(cbor.decode(wire) as CborMap),
+      throwsFormatException,
+    );
+    expect(
+      () => ClientPinResponse.decode(
+        cbor.encode(
+          CborValue({
+            1: CborValue({1: 2, -1: 1}),
+          }),
+        ),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('algorithm enumeration separates signatures from key agreement', () {
+    expect(CoseKey.supportedAlgorithms(), contains(-25));
+    expect(CoseKey.supportedSignatureAlgorithms(), isNot(contains(-25)));
+    expect(
+      CoseKey.supportedSignatureAlgorithms(),
+      containsAll([-7, -8, -9, -19, -48, -49, -50]),
+    );
+  });
+
+  test('makeCredential and getAssertion require typed response fields', () {
+    final make = <int, dynamic>{
+      1: 'none',
+      2: CborBytes([1]),
+      3: <String, dynamic>{},
+    };
+    final get = <int, dynamic>{
+      1: {
+        'type': 'public-key',
+        'id': CborBytes([42]),
+      },
+      2: CborBytes([1]),
+      3: CborBytes([2]),
+    };
+    for (final label in [1, 2, 3]) {
+      final missingMake = Map<int, dynamic>.from(make)..remove(label);
+      final missingGet = Map<int, dynamic>.from(get)..remove(label);
+      expect(
+        () =>
+            MakeCredentialResponse.decode(cbor.encode(CborValue(missingMake))),
+        throwsFormatException,
+      );
+      expect(
+        () => GetAssertionResponse.decode(cbor.encode(CborValue(missingGet))),
+        throwsFormatException,
+      );
+      final invalidMake = {...make, label: 42};
+      final invalidGet = {...get, label: 42};
+      expect(
+        () =>
+            MakeCredentialResponse.decode(cbor.encode(CborValue(invalidMake))),
+        throwsFormatException,
+      );
+      expect(
+        () => GetAssertionResponse.decode(cbor.encode(CborValue(invalidGet))),
+        throwsFormatException,
+      );
+    }
+    final requested = PublicKeyCredentialDescriptor(
+      type: 'public-key',
+      id: [42],
+    );
+    final omitted = Map<int, dynamic>.from(get)..remove(1);
+    final decoded = GetAssertionResponse.decode(
+      cbor.encode(CborValue(omitted)),
+      requestedCredential: requested,
+    );
+    expect(decoded.credential.id, [42]);
+    expect(decoded.signature, [2]);
+  });
+
   test(
     'credential metadata retains optional names, transports and COSE ID',
     () {

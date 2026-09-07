@@ -1,5 +1,27 @@
 ## 2.0.0
 
+* Add `supportedSignatureAlgorithms()`; `supportedAlgorithms()` includes
+  ECDH-ES+HKDF-256 (-25).
+* Support 64 KiB authenticator data with its 32-byte client-data hash in verification.
+* Report malformed WebAuthn responses and rejected algorithms as
+  `FormatException`; cryptographic failures use `CryptoException`.
+* Validate getInfo field types, composite CBOR labels, exact integer conversion
+  and the 64-level nesting limit.
+* Support omitted assertion descriptors through `requestedCredential`.
+* Return immutable parsed authenticator bytes and reject malformed credential
+  IDs, trailing data, tagged maps and inconsistent backup flags.
+
+* Encode enterprise attestation as CTAP mode 1 or 2 through
+  `enterpriseAttestationMode`; the existing boolean maps true to mode 1 and
+  false to an omitted field.
+* Require 1-64 byte user IDs and non-null names when generating registration
+  options; CTAP user names remain optional.
+* Add `CoseKey.verifySync()` alongside asynchronous `verify()`.
+* Add CTAP configuration aliases, static encode/decode helpers and
+  `src/authenticator_data.dart` with flat credential accessors.
+* Validate COSE structure during authenticator-data parsing and snapshot byte
+  buffers. Require typed makeCredential/getAssertion response fields.
+* Encode getInfo AAGUID as bytes and omit PIN shared secrets from JSON/log output.
 * Breaking: `AuthenticatorInfo.algorithms` now has type
   `List<Map<String, dynamic>>?`, since the `type` member is a string.
 * Breaking: COSE keys, including unsupported algorithms, now require integer

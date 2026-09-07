@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cryptography/cryptography.dart' as crypto;
 import 'package:cbor/cbor.dart';
 import 'package:fido2/fido2.dart';
 import 'package:test/test.dart';
@@ -94,6 +95,118 @@ void main() {
     },
   };
 
+  test(
+    'maximum authenticator data verifies and oversized fields are rejected',
+    () async {
+      final algorithm = crypto.Ed25519();
+      final pair = await algorithm.newKeyPairFromSeed(List.filled(32, 7));
+      final publicKey = await pair.extractPublicKey();
+      final extended = [
+        ...auth.sublist(0, 32),
+        0x81,
+        0,
+        0,
+        0,
+        1,
+        ...cbor.encode(CborValue({'x': CborBytes(List.filled(65493, 0))})),
+      ];
+      expect(extended, hasLength(65536));
+      final signature = await algorithm.sign([
+        ...extended,
+        ...RustCrypto.sha256(bytes(data['clientDataJSON'])),
+      ], keyPair: pair);
+      final s = server([-8]);
+      final stored = RegisteredCredential(
+        id: id,
+        publicKey: EdDSA.fromPublicKey(publicKey.bytes),
+      );
+      final response = assertion({'signature': signature.bytes});
+      final fields = response['response'] as Map;
+      fields['authenticatorData'] = b64(extended);
+      expect(
+        s.authenticateComplete(
+          response,
+          credential: stored,
+          expectedChallenge: challenge,
+        ),
+        1,
+      );
+      for (final field in [
+        'authenticatorData',
+        'clientDataJSON',
+        'signature',
+      ]) {
+        final previous = fields[field];
+        fields[field] = b64(List.filled(65537, 0));
+        expect(
+          () => s.authenticateComplete(
+            response,
+            credential: stored,
+            expectedChallenge: challenge,
+          ),
+          throwsFormatException,
+        );
+        fields[field] = previous;
+      }
+    },
+  );
+
+  test('registration user ID boundaries and required names', () {
+    final s = server([-7]);
+    for (final id in <List<int>>[
+      [],
+      List.filled(65, 1),
+      [-1],
+      [256],
+    ]) {
+      expect(
+        () => s.registerBegin(
+          PublicKeyCredentialUserEntity(
+            id: id,
+            name: 'alice',
+            displayName: 'Alice',
+          ),
+        ),
+        throwsArgumentError,
+      );
+    }
+    for (final user in [
+      PublicKeyCredentialUserEntity(id: [1]),
+      PublicKeyCredentialUserEntity(id: [1], name: 'alice'),
+      PublicKeyCredentialUserEntity(id: [1], displayName: 'Alice'),
+    ]) {
+      expect(() => s.registerBegin(user), throwsArgumentError);
+    }
+    for (final length in [1, 64]) {
+      final id = List.filled(length, 255);
+      final request = s.registerBegin(
+        PublicKeyCredentialUserEntity(id: id, name: '', displayName: ''),
+      );
+      expect(request.publicKey['user'], {
+        'id': b64(id),
+        'name': '',
+        'displayName': '',
+      });
+    }
+    final longUsername = List.filled(33, '\u00e9').join();
+    expect(
+      () => s.generateRegistrationOptions(longUsername, 'Alice'),
+      throwsArgumentError,
+    );
+    expect(
+      s.generateRegistrationOptions(
+        longUsername,
+        'Alice',
+        userHandle: [1],
+      )['user'],
+      {
+        'id': b64([1]),
+        'name': longUsername,
+        'displayName': 'Alice',
+      },
+    );
+  });
+
   test('default, single algorithm and mixed registration ordering', () {
     expect(
       Fido2Config(
@@ -126,6 +239,48 @@ void main() {
     expect(() => server([-25]), throwsArgumentError);
     expect(() => server([-7, -7]), throwsArgumentError);
   });
+  test('registration and authentication reject unlisted origins', () {
+    final vector = (data['vectors'] as List).first as Map;
+    final key = keyFor(vector);
+    final s = server([vector['alg'] as int]);
+    final stored = RegisteredCredential(id: id, publicKey: key);
+    for (final origin in [
+      'https://evil.example',
+      'https://login.example.com',
+      'https://example.com:8443',
+      'http://example.com',
+    ]) {
+      final reg = registration(key);
+      final signed = assertion(vector);
+      for (final entry in [
+        (reg, 'webauthn.create'),
+        (signed, 'webauthn.get'),
+      ]) {
+        (entry.$1['response'] as Map)['clientDataJSON'] = b64(
+          utf8.encode(
+            jsonEncode({
+              'type': entry.$2,
+              'challenge': b64(challenge),
+              'origin': origin,
+            }),
+          ),
+        );
+      }
+      expect(
+        () => s.registerComplete(reg, expectedChallenge: challenge),
+        throwsFormatException,
+      );
+      expect(
+        () => s.authenticateComplete(
+          signed,
+          credential: stored,
+          expectedChallenge: challenge,
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
   test('registration rejects duplicate attestation object fields', () {
     final vector = (data['vectors'] as List).first as Map;
     final response = registration(keyFor(vector));
@@ -144,10 +299,15 @@ void main() {
       throwsFormatException,
     );
   });
-  for (final vector in data['vectors'] as List) {
-    final key = keyFor(vector as Map);
+  final vectors = (data['vectors'] as List).cast<Map>();
+  for (final vector in [
+    ...vectors,
+    {...vectors.firstWhere((v) => v['alg'] == -7), 'alg': -9},
+    {...vectors.firstWhere((v) => v['alg'] == -8), 'alg': -19},
+  ]) {
+    final key = keyFor(vector);
     final alg = vector['alg'] as int;
-    group('${vector['algorithm']} full ceremony', () {
+    group('${vector['algorithm']} ($alg) full ceremony', () {
       test('existing server API and JSON results', () async {
         final s = server([alg]);
         final options = s.generateRegistrationOptions(
@@ -247,7 +407,7 @@ void main() {
             credential: stored,
             expectedChallenge: challenge,
           ),
-          throwsUnsupportedError,
+          throwsFormatException,
         );
         final changed = assertion(vector);
         (changed['response'] as Map)['clientDataJSON'] = b64(

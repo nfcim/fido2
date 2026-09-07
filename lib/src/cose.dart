@@ -210,28 +210,36 @@ sealed class CoseKey extends MapView<int, dynamic> with JsonToStringMixin {
   }
 
   static CoseKey fromCborMap(CborMap map, {CoseConfiguration? configuration}) {
+    try {
+      return _fromCborMap(map, configuration: configuration);
+    } on ArgumentError catch (error) {
+      throw FormatException('Invalid COSE key: ${error.message}');
+    }
+  }
+
+  static CoseKey _fromCborMap(CborMap map, {CoseConfiguration? configuration}) {
     if (map.tags.isNotEmpty) {
       throw ArgumentError('Expected an untagged COSE map');
     }
     final alg = map[CborSmallInt(3)];
+    final algorithm = alg is CborInt ? cborExactInt(alg) : null;
     final known =
-        alg is CborInt &&
-        (alg.toInt() == -25 ||
-            (configuration ?? CoseConfiguration()).resolve(alg.toInt()) !=
-                null);
+        algorithm != null &&
+        (algorithm == -25 ||
+            (configuration ?? CoseConfiguration()).resolve(algorithm) != null);
     final params = <int, dynamic>{};
     for (final entry in map.entries) {
       if (entry.key is! CborInt || entry.key.tags.isNotEmpty) {
         throw ArgumentError('COSE labels must be untagged integers');
       }
-      final label = (entry.key as CborInt).toInt();
+      final label = cborExactInt(entry.key as CborInt);
       final value = entry.value;
       if ({1, 3}.contains(label) || (known && {-1, -2, -3}.contains(label))) {
         if (value.tags.isNotEmpty) throw ArgumentError('Tagged COSE key field');
         params[label] = value is CborBytes
             ? List<int>.from(value.bytes)
             : value is CborInt
-            ? value.toInt()
+            ? cborExactInt(value)
             : value;
       } else {
         params[label] = value;
@@ -277,7 +285,16 @@ sealed class CoseKey extends MapView<int, dynamic> with JsonToStringMixin {
     };
   }
 
+  /// All supported COSE algorithms, including key agreement.
   static List<int> supportedAlgorithms({CoseConfiguration? configuration}) => [
+    ...supportedSignatureAlgorithms(configuration: configuration),
+    EcdhEsHkdf256.algorithm,
+  ];
+
+  /// Signature algorithms suitable for WebAuthn registration.
+  static List<int> supportedSignatureAlgorithms({
+    CoseConfiguration? configuration,
+  }) => [
     ES256.algorithm,
     Ed25519.algorithm,
     Ed25519.fullySpecifiedAlgorithm,

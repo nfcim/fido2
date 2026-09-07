@@ -35,7 +35,8 @@ class GetAssertionRequest with JsonToStringMixin {
   /// Options map, e.g., {"up": true, "uv": false}.
   final Map<String, bool>? options;
 
-  /// Result of authenticate(pinUvAuthToken, clientDataHash), if present.
+  /// Result of authenticateParam(pinUvAuthToken, clientDataHash):
+  /// 16 bytes for PIN v1, 32 bytes for PIN v2.
   final List<int>? pinAuth;
 
   /// PIN/UV protocol version selected by the platform.
@@ -126,22 +127,51 @@ class GetAssertionResponse with JsonToStringMixin {
   });
 
   /// Decodes a CBOR-encoded response into [GetAssertionResponse].
-  static GetAssertionResponse decode(List<int> data) {
-    final map = ctapResponseMap(data).toObject() as Map;
-    final credentialMap = map[credentialIdx] as Map?;
+  /// Supply [requestedCredential] when the authenticator omits the descriptor
+  /// for a request with exactly one allowed credential.
+  static GetAssertionResponse decode(
+    List<int> data, {
+    PublicKeyCredentialDescriptor? requestedCredential,
+  }) {
+    final map = ctapResponseMap(data);
+    final descriptor = cborField<CborMap>(map, credentialIdx);
+    final user = cborField<CborMap>(map, userIdx);
+    final credential = descriptor == null
+        ? requestedCredential
+        : PublicKeyCredentialDescriptor(
+            type: cborField<CborString>(
+              descriptor,
+              'type',
+              required: true,
+            )!.toString(),
+            id: cborField<CborBytes>(descriptor, 'id', required: true)!.bytes,
+          );
+    if (credential == null) {
+      throw const FormatException(
+        'Credential descriptor or single requested credential required',
+      );
+    }
     return GetAssertionResponse(
-      credential: PublicKeyCredentialDescriptor(
-        type: credentialMap?['type'] as String? ?? '',
-        id: (credentialMap?['id'] as List?)?.cast<int>() ?? [],
-      ),
-      authData: (map[authDataIdx] as List?)?.cast<int>() ?? [],
-      signature: (map[signatureIdx] as List?)?.cast<int>() ?? [],
-      user: (map[userIdx] as Map?)?.cast<String, dynamic>() != null
-          ? PublicKeyCredentialUserEntity.fromCbor(map[userIdx])
-          : null,
-      numberOfCredentials: map[numberOfCredentialsIdx] as int?,
-      userSelected: map[userSelectedIdx] as bool?,
-      largeBlobKey: (map[largeBlobKeyIdx] as List?)?.cast<int>(),
+      credential: credential,
+      authData: cborField<CborBytes>(map, authDataIdx, required: true)!.bytes,
+      signature: cborField<CborBytes>(map, signatureIdx, required: true)!.bytes,
+      user: user == null
+          ? null
+          : PublicKeyCredentialUserEntity(
+              id: cborField<CborBytes>(user, 'id', required: true)!.bytes,
+              name: cborField<CborString>(user, 'name')?.toString(),
+              displayName: cborField<CborString>(
+                user,
+                'displayName',
+              )?.toString(),
+            ),
+      numberOfCredentials: cborField<CborInt>(
+        map,
+        numberOfCredentialsIdx,
+      )?.toInt(),
+      userSelected:
+          cborField<CborBool>(map, userSelectedIdx)?.toObject() as bool?,
+      largeBlobKey: cborField<CborBytes>(map, largeBlobKeyIdx)?.bytes,
     );
   }
 

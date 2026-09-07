@@ -101,3 +101,22 @@ fn pure_mldsa_context_is_not_prehash() {
     check!(ml_dsa::MlDsa65, "ml-dsa-65");
     check!(ml_dsa::MlDsa87, "ml-dsa-87");
 }
+
+#[test]
+fn verification_message_boundary() {
+    use ed25519_dalek::{Signer, SigningKey};
+    let key = SigningKey::from_bytes(&[7; 32]);
+    let message = vec![0; 65568];
+    let signature = key.sign(&message);
+    let mut request = json!({"op":"verify", "algorithm":"ed25519",
+        "encoding":"raw", "key":key.verifying_key().as_bytes(),
+        "message":message, "signature":signature.to_bytes().as_slice()});
+    assert_eq!(call(request.clone())["data"], json!([1]));
+    request["message"].as_array_mut().unwrap().push(json!(0));
+    assert_eq!(call(request)["error"], "invalid_length");
+    assert!(call(json!({"op":"sha256", "message":vec![0;65536]}))["data"].is_array());
+    assert_eq!(
+        call(json!({"op":"sha256", "message":vec![0;65537]}))["error"],
+        "invalid_length"
+    );
+}

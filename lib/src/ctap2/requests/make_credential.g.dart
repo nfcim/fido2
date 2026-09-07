@@ -19,6 +19,13 @@ Map<String, dynamic> _$MakeCredentialRequestToJson(
   'pinAuth': instance.pinAuth,
   'pinProtocol': instance.pinProtocol,
   'enterpriseAttestation': instance.enterpriseAttestation,
+  'enterpriseAttestationMode':
+      ?_$EnterpriseAttestationModeEnumMap[instance.enterpriseAttestationMode],
+};
+
+const _$EnterpriseAttestationModeEnumMap = {
+  EnterpriseAttestationMode.vendorFacilitated: 1,
+  EnterpriseAttestationMode.platformManaged: 2,
 };
 
 Map<String, dynamic> _$MakeCredentialResponseToJson(

@@ -2,6 +2,10 @@
 
 ## API changes
 
+`Ctap2.create` accepts `configuration` and `coseConfiguration`. The six static
+CTAP encode/decode helpers, `src/authenticator_data.dart` import, and flat
+`aaguid` and `credentialId` accessors are available.
+
 Initialize the backend once per Dart isolate with `await RustCrypto.initialize()`.
 Repeated calls use identical options; conflicting options produce `StateError`.
 Failed initialization can be retried.
@@ -17,6 +21,12 @@ Failed initialization can be retried.
   `requireUserHandle` and `storedBackupEligible`; its result includes backup state.
 * PIN v1 `authenticate()` returns the full 32-byte MAC.
   `authenticateParam()` produces the CTAP wire MAC: 16 bytes for v1, 32 for v2.
+* `MakeCredentialRequest.enterpriseAttestationMode` selects
+  `EnterpriseAttestationMode.vendorFacilitated` (1) or `platformManaged` (2).
+  It takes precedence over `enterpriseAttestation`. The existing boolean
+  parameter maps `true` to mode 1 and omits the field for `false` or `null`.
+* Registration options require a user ID of 1-64 bytes and non-null `name`
+  and `displayName`. CTAP user entities continue to support optional names.
 
 COSE parsing and encoding work before initialization. `CoseKey.fromCbor(bytes)`
 checks duplicate labels, including nested maps, before constructing a key.
@@ -24,14 +34,61 @@ Use `fromCborMap()` for an already decoded map. Public key fields are immutable;
 unknown fields retain their CBOR types and tags. Roundtrips preserve values
 rather than the original wire encoding.
 
-`key.validate()` checks mathematical validity in Rust. `key.verify()` retains its
-`Future<void>` return type. `key.verifySync()` provides synchronous verification. `RustCrypto.verify()` returns
+`key.validate()` checks mathematical validity in Rust. `key.verify()` returns
+`Future<void>`; `key.verifySync()` returns `void`. Both methods use the same
+verifier. `RustCrypto.verify()` returns
 a boolean for validly encoded signatures and throws `CryptoException` for
 invalid inputs or unsupported modes.
 
 The client/server exports, request `encode()` and response `decode()` methods,
 JSON serialization, COSE constants and `EdDSA` class retain their existing APIs.
 Credential management supports metadata-only enumeration and optional user names.
+
+`AuthenticatorData.parse()` validates COSE structure before returning; its
+byte buffers are immutable snapshots. Mathematical key validation uses
+`key.validate()` or verification.
+
+`origins` defaults to the single origin `https://<rpId>`.
+An explicitly supplied set is used exactly, including rejection of an empty
+set. Applications with other origins must configure them explicitly.
+
+## Errors and parsed data
+
+Wire parsing and WebAuthn response validation report `FormatException`.
+Cryptographic failures report `CryptoException`, including invalid signatures
+and public keys. Invalid constructor/configuration arguments use `ArgumentError`;
+an uninitialized backend uses `StateError`. These replace the generic exceptions
+used by several 1.x verification paths. Await asynchronous verification methods
+to receive their errors.
+
+`AuthenticatorData.parse()` requires credential IDs of 1-1023 bytes, consumes
+all input, rejects tagged key/extension maps, and requires BE when BS is set.
+Parsed byte buffers and `VerificationResult.authenticatorData` returned by the
+server are immutable. Use `Uint8List.fromList(bytes)` for a mutable copy.
+
+`GetAssertionResponse.decode(data, requestedCredential: descriptor)` accepts
+a response with an omitted credential descriptor when the request contained
+exactly that one allowed credential.
+
+`CoseKey.supportedAlgorithms()` includes key agreement (-25).
+`CoseKey.supportedSignatureAlgorithms()` lists signature algorithms.
+`Fido2Config.signatureAlgorithms` controls the algorithms offered at registration.
+
+## JSON serialization
+
+Entities expose `toJson()` for export and logging. There is no generated
+`fromJson()` persistence API. Existing encodings are preserved:
+
+| Value | JSON encoding |
+| --- | --- |
+| Dart byte lists and `Uint8List` | Integer arrays |
+| CBOR byte strings through `CborMap.toJson()` | Hexadecimal strings |
+| Known COSE key byte fields through `CoseKey.toJson()` | Integer arrays |
+| WebAuthn wire byte fields | Base64url strings |
+
+For public-key persistence, store base64url-encoded `cbor.encode(key.toCborMap())`
+and load it with `CoseKey.fromCbor()`. `EncapsulateResult.toJson()` and
+`toString()` omit `sharedSecret`; the property remains available to protocol code.
 
 ## Algorithms
 
@@ -177,15 +234,19 @@ module loading and WASM compilation. Deploy JS and WASM as one version.
 
 ## Runtime limits
 
-The native/WASM bridge allows 1 MiB per JSON request and 64 KiB per binary
-field. HKDF output is limited to 8160 bytes; random output to 65536 bytes.
+The native/WASM bridge allows 1 MiB per JSON request. Keys, signatures, IVs,
+salt, info and ordinary messages are limited to 65536 bytes. Signature
+verification messages allow 65568 bytes for authenticator data plus the
+32-byte client-data hash. Pure ML-DSA context is limited to 255 bytes and
+SM2 ID to 8191 UTF-8 bytes.
+WebAuthn client data, signatures and authenticator data are limited to 65536
+decoded bytes; attestation objects allow 66560 bytes including CBOR framing. HKDF output is limited to 8160 bytes; random output to 65536 bytes.
 Native bridge buffers and Rust request buffers are cleared on release.
 Dart and JS managed copies of secret material are subject to garbage collection
 and cannot be reliably erased.
 
 Rust dependencies and versions are recorded in `rust/Cargo.toml` and
-`rust/Cargo.lock`. The SM2 and ML-DSA upstream implementations have not been
-independently audited. Include dependency licenses when distributing binaries.
+`rust/Cargo.lock`. Include dependency licenses when distributing binaries.
 
 ## Tests
 
@@ -197,7 +258,7 @@ dart run fido2:setup --web
 dart run build_runner build
 dart run tool/test.dart
 dart run tool/test.dart -p chrome
-dart run tool/test.dart -p chrome -c dart2wasm test/crypto_test.dart test/webauthn_test.dart test/initialization_test.dart test/fido2_base_test.dart test/cbor_boundaries_test.dart test/fido2_server_auth_data_test.dart test/fido2_credmgmt_test.dart
+dart run tool/test.dart -p chrome -c dart2wasm test/crypto_test.dart test/webauthn_test.dart test/initialization_test.dart test/fido2_base_test.dart test/cbor_boundaries_test.dart test/fido2_server_auth_data_test.dart test/fido2_credmgmt_test.dart test/api_compatibility_test.dart
 dart analyze
 dart format --output=none --set-exit-if-changed .
 ```
@@ -205,8 +266,9 @@ dart format --output=none --set-exit-if-changed .
 Tests cover RFC 9964 ML-DSA vectors, the SM2 standard example, RFC 8032
 Ed25519, RFC 6979 P-256, RFC 5869 HKDF, HMAC/SHA/SM3 and NIST AES-CBC vectors.
 Independent Dart implementations verify PIN ECDH/KDF/AES/MAC results.
-Integration fixtures cover registration and authentication for every signature
-algorithm. Additional tests cover account binding, backup-state transitions,
+Integration tests cover registration and authentication for every supported
+standard signature identifier, plus the configured SM2 profile. ESP256 (-9)
+and Ed25519 (-19) reuse the P-256 and Ed25519 signature fixtures. Additional tests cover account binding, backup-state transitions,
 CBOR types, duplicate labels, malformed responses and initialization.
 
 Fixtures are committed. `tool/import_vectors.py` imports RFC XML examples;

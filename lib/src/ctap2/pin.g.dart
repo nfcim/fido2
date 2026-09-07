@@ -7,7 +7,4 @@ part of 'pin.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$EncapsulateResultToJson(EncapsulateResult instance) =>
-    <String, dynamic>{
-      'coseKey': instance.coseKey.toJson(),
-      'sharedSecret': instance.sharedSecret,
-    };
+    <String, dynamic>{'coseKey': instance.coseKey.toJson()};

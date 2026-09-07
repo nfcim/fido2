@@ -1,5 +1,6 @@
 import 'package:cbor/cbor.dart';
 import '../serialization.dart';
+import '../../strict_cbor.dart';
 import 'package:fido2/src/utils/serialization.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -129,7 +130,7 @@ class AuthenticatorInfo with JsonToStringMixin {
     if (extensions != null) {
       map[extensionsIdx] = extensions;
     }
-    map[aaguidIdx] = aaguid;
+    map[aaguidIdx] = CborBytes(aaguid);
     if (options != null) {
       map[optionsIdx] = options;
     }
@@ -190,33 +191,102 @@ class AuthenticatorInfo with JsonToStringMixin {
 
   /// Decodes a CBOR-encoded authenticatorGetInfo response into [AuthenticatorInfo].
   static AuthenticatorInfo decode(List<int> data) {
-    final map = ctapResponseMap(data).toObject() as Map;
+    final map = ctapResponseMap(data);
+    List<T>? list<T>(
+      int label,
+      T Function(CborValue) convert, {
+      bool required = false,
+    }) {
+      return cborField<CborList>(
+        map,
+        label,
+        required: required,
+      )?.map(convert).toList();
+    }
+
+    String text(CborValue value) {
+      if (value is! CborString || value.tags.isNotEmpty) {
+        throw const FormatException('Expected untagged CTAP text');
+      }
+      return value.toString();
+    }
+
+    int integer(CborValue value) {
+      if (value is! CborInt || value.tags.isNotEmpty) {
+        throw const FormatException('Expected untagged CTAP integer');
+      }
+      return cborExactInt(value);
+    }
+
+    bool boolean(CborValue value) {
+      if (value is! CborBool || value.tags.isNotEmpty) {
+        throw const FormatException('Expected untagged CTAP boolean');
+      }
+      return value.toObject() as bool;
+    }
+
+    int? number(int label) {
+      final value = cborField<CborInt>(map, label);
+      return value == null ? null : integer(value);
+    }
+
+    Map<String, T>? dictionary<T>(int label, T Function(CborValue) convert) {
+      final value = cborField<CborMap>(map, label);
+      return value == null
+          ? null
+          : {
+              for (final entry in value.entries)
+                text(entry.key): convert(entry.value),
+            };
+    }
+
+    final aaguid = cborField<CborBytes>(map, aaguidIdx, required: true)!.bytes;
+    if (aaguid.length != 16) {
+      throw const FormatException('Expected 16-byte AAGUID');
+    }
     return AuthenticatorInfo(
-      versions: (map[versionsIdx] as List).cast<String>(),
-      extensions: (map[extensionsIdx] as List?)?.cast<String>(),
-      aaguid: map[aaguidIdx] as List<int>,
-      options: (map[optionsIdx] as Map?)?.cast<String, bool>(),
-      maxMsgSize: map[maxMsgSizeIdx] as int?,
-      pinUvAuthProtocols: (map[pinUvAuthProtocolsIdx] as List?)?.cast<int>(),
-      maxCredentialCountInList: map[maxCredentialCountInListIdx] as int?,
-      maxCredentialIdLength: map[maxCredentialIdLengthIdx] as int?,
-      transports: (map[transportsIdx] as List?)?.cast<String>(),
-      algorithms: (map[algorithmsIdx] as List?)
-          ?.map((entry) => Map<String, dynamic>.from(entry as Map))
-          .toList(),
-      maxSerializedLargeBlobArray: map[maxSerializedLargeBlobArrayIdx] as int?,
-      forcePinChange: map[forcePinChangeIdx] as bool?,
-      minPinLength: map[minPinLengthIdx] as int?,
-      firmwareVersion: map[firmwareVersionIdx] as int?,
-      maxCredBlobLength: map[maxCredBlobLengthIdx] as int?,
-      maxRpIdsForSetMinPinLength: map[maxRpIdsForSetMinPinLengthIdx] as int?,
-      preferredPlatformUvAttempts: map[preferredPlatformUvAttemptsIdx] as int?,
-      uvModality: map[uvModalityIdx] as int?,
-      certifications: (map[certificationsIdx] as Map?)?.cast<String, int>(),
-      remainingDiscoverableCredentials:
-          map[remainingDiscoverableCredentialsIdx] as int?,
-      vendorPrototypeConfigCommands:
-          (map[vendorPrototypeConfigCommandsIdx] as List?)?.cast<int>(),
+      versions: list(versionsIdx, text, required: true)!,
+      extensions: list(extensionsIdx, text),
+      aaguid: aaguid,
+      options: dictionary(optionsIdx, boolean),
+      maxMsgSize: number(maxMsgSizeIdx),
+      pinUvAuthProtocols: list(pinUvAuthProtocolsIdx, integer),
+      maxCredentialCountInList: number(maxCredentialCountInListIdx),
+      maxCredentialIdLength: number(maxCredentialIdLengthIdx),
+      transports: list(transportsIdx, text),
+      algorithms: list(algorithmsIdx, (entry) {
+        if (entry is! CborMap || entry.tags.isNotEmpty) {
+          throw const FormatException('Expected CTAP algorithm map');
+        }
+        final result = <String, dynamic>{
+          for (final item in entry.entries)
+            text(item.key): item.value.toObject(),
+        };
+        result['type'] = text(
+          cborField<CborString>(entry, 'type', required: true)!,
+        );
+        result['alg'] = integer(
+          cborField<CborInt>(entry, 'alg', required: true)!,
+        );
+        return result;
+      }),
+      maxSerializedLargeBlobArray: number(maxSerializedLargeBlobArrayIdx),
+      forcePinChange:
+          cborField<CborBool>(map, forcePinChangeIdx)?.toObject() as bool?,
+      minPinLength: number(minPinLengthIdx),
+      firmwareVersion: number(firmwareVersionIdx),
+      maxCredBlobLength: number(maxCredBlobLengthIdx),
+      maxRpIdsForSetMinPinLength: number(maxRpIdsForSetMinPinLengthIdx),
+      preferredPlatformUvAttempts: number(preferredPlatformUvAttemptsIdx),
+      uvModality: number(uvModalityIdx),
+      certifications: dictionary(certificationsIdx, integer),
+      remainingDiscoverableCredentials: number(
+        remainingDiscoverableCredentialsIdx,
+      ),
+      vendorPrototypeConfigCommands: list(
+        vendorPrototypeConfigCommandsIdx,
+        integer,
+      ),
     );
   }
 
