@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import '../../cose.dart';
+import 'attestation.dart';
 
 import 'package:cbor/cbor.dart';
 import 'package:fido2/src/utils/serialization.dart';
@@ -11,6 +12,11 @@ part 'registration_data.g.dart';
 /// The result of a successful registration verification.
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class RegistrationResult with JsonToStringMixin {
+  /// Evidence from registration verification; null for manually constructed
+  /// legacy results. Certificate trust is separate from signature validity.
+  @JsonKey(includeIfNull: false)
+  final AttestationResult? attestation;
+
   /// A unique identifier for the new credential.
   final Uint8List credentialId;
 
@@ -29,6 +35,7 @@ class RegistrationResult with JsonToStringMixin {
     this.backupEligible = false,
     this.backedUp = false,
     this.userHandle,
+    this.attestation,
   });
 
   @override
@@ -37,6 +44,10 @@ class RegistrationResult with JsonToStringMixin {
 
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class RegisteredCredential with JsonToStringMixin {
+  /// Evidence from registration verification; optional for persisted credentials
+  /// loaded only for authentication. This does not assert vendor trust.
+  @JsonKey(includeIfNull: false)
+  final AttestationResult? attestation;
   @override
   Map<String, dynamic> toJson() => _$RegisteredCredentialToJson(this);
 
@@ -53,6 +64,7 @@ class RegisteredCredential with JsonToStringMixin {
     this.backupEligible = false,
     this.backedUp = false,
     List<int>? userHandle,
+    this.attestation,
   }) : id = List.unmodifiable(id),
        userHandle = userHandle == null ? null : List.unmodifiable(userHandle) {
     if (backedUp && !backupEligible) {

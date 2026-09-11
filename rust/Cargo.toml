@@ -27,6 +27,7 @@ sha2 = "=0.10.9"
 sm2 = { version = "=0.13.3", default-features = false, features = ["dsa", "std"] }
 sm3 = "=0.4.2"
 subtle = "=2.6.1"
+x509-cert = { version = "=0.2.5", default-features = false, features = ["std"] }
 zeroize = { version = "1", features = ["derive"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

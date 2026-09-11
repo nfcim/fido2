@@ -48,7 +48,7 @@ jobs:
         if: runner.os == 'Linux'
       - run: dart run tool/test.dart -p chrome
         if: runner.os == 'Linux'
-      - run: dart run tool/test.dart -p chrome -c dart2wasm test/crypto_test.dart test/webauthn_test.dart test/initialization_test.dart test/fido2_base_test.dart test/cbor_boundaries_test.dart test/fido2_server_auth_data_test.dart test/fido2_credmgmt_test.dart test/api_compatibility_test.dart
+      - run: dart run tool/test.dart -p chrome -c dart2wasm test/crypto_test.dart test/webauthn_test.dart test/packed_attestation_test.dart test/initialization_test.dart test/fido2_base_test.dart test/cbor_boundaries_test.dart test/fido2_server_auth_data_test.dart test/fido2_credmgmt_test.dart test/api_compatibility_test.dart
         if: runner.os == 'Linux'
       - run: dart doc
       - name: Upload generated dartdoc

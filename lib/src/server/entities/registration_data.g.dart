@@ -8,6 +8,7 @@ part of 'registration_data.dart';
 
 Map<String, dynamic> _$RegistrationResultToJson(RegistrationResult instance) =>
     <String, dynamic>{
+      'attestation': ?instance.attestation?.toJson(),
       'credentialId': instance.credentialId,
       'credentialPublicKey': instance.credentialPublicKey.toJson(),
       'signCount': instance.signCount,
@@ -19,6 +20,7 @@ Map<String, dynamic> _$RegistrationResultToJson(RegistrationResult instance) =>
 Map<String, dynamic> _$RegisteredCredentialToJson(
   RegisteredCredential instance,
 ) => <String, dynamic>{
+  'attestation': ?instance.attestation?.toJson(),
   'id': instance.id,
   'publicKey': instance.publicKey.toJson(),
   'signCount': instance.signCount,

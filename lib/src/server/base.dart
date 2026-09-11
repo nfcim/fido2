@@ -9,6 +9,7 @@ import '../crypto/crypto.dart';
 import '../ctap2/entities/credential_entities.dart';
 import 'config.dart';
 import '../strict_cbor.dart';
+import 'attestation.dart';
 
 String _b64(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
 List<int> _decode(Object? value, {int maxLength = 65536}) {
@@ -26,7 +27,8 @@ List<int> _decode(Object? value, {int maxLength = 65536}) {
 
 /// WebAuthn server ceremonies. Callers must store challenges server-side,
 /// bind them to the user/session, expire them, and atomically consume them once.
-/// Registration supports fmt=none and validates the credential public key.
+/// Registration verifies none/packed attestation and the credential public key.
+/// Certificate trust is delegated to [Fido2Config.attestationVerifier].
 class Fido2Server {
   final Fido2Config config;
   Fido2Server(this.config);
@@ -63,7 +65,7 @@ class Fido2Server {
         'pubKeyCredParams': [
           for (final alg in offered) {'type': 'public-key', 'alg': alg},
         ],
-        'attestation': 'none',
+        'attestation': config.attestation.name,
         'authenticatorSelection': {
           'userVerification': config.requireUserVerification
               ? 'required'
@@ -150,19 +152,13 @@ class Fido2Server {
     List<int>? userHandle,
   }) {
     final response = _response(credential);
-    final registered = _registerResponse(
+    return _registerResponse(
       response,
       expectedChallenge: expectedChallenge,
       offeredAlgorithms: offeredAlgorithms,
       userHandle: userHandle,
+      expectedCredentialId: _decode(credential['rawId']),
     );
-    if (!RustCrypto.constantTimeEquals(
-      registered.id,
-      _decode(credential['rawId']),
-    )) {
-      throw const FormatException('Mismatched credential ID');
-    }
-    return registered;
   }
 
   RegisteredCredential _registerResponse(
@@ -170,8 +166,9 @@ class Fido2Server {
     required List<int> expectedChallenge,
     List<int>? offeredAlgorithms,
     List<int>? userHandle,
+    List<int>? expectedCredentialId,
   }) {
-    _clientData(
+    final clientData = _clientData(
       response['clientDataJSON'],
       'webauthn.create',
       expectedChallenge,
@@ -181,15 +178,17 @@ class Fido2Server {
     );
     if (object is! CborMap ||
         object.tags.isNotEmpty ||
-        object[CborString('fmt')] != CborString('none') ||
-        object[CborString('attStmt')] is! CborMap ||
-        (object[CborString('attStmt')] as CborMap).isNotEmpty) {
-      throw const FormatException(
-        'Supported attestation format: none with an empty statement',
-      );
+        object[CborString('fmt')] is! CborString ||
+        object[CborString('fmt')]!.tags.isNotEmpty ||
+        object[CborString('attStmt')] is! CborMap) {
+      throw const FormatException('Invalid attestation object');
+    }
+    final format = (object[CborString('fmt')] as CborString).toString();
+    if (!config.attestationFormats.contains(format)) {
+      throw const FormatException('Attestation format is not allowed');
     }
     final encodedData = object[CborString('authData')];
-    if (encodedData is! CborBytes) {
+    if (encodedData is! CborBytes || encodedData.tags.isNotEmpty) {
       throw const FormatException('Expected authData bytes');
     }
     final data = AuthenticatorData.parse(
@@ -200,6 +199,13 @@ class Fido2Server {
     final key = data.credentialPublicKey;
     if (key == null || data.credentialId == null) {
       throw const FormatException('Missing or mismatched attested credential');
+    }
+    if (expectedCredentialId != null &&
+        !RustCrypto.constantTimeEquals(
+          data.credentialId!,
+          expectedCredentialId,
+        )) {
+      throw const FormatException('Mismatched credential ID');
     }
     // Check the saved request list and the current policy.
     if (!(offeredAlgorithms ?? config.signatureAlgorithms).contains(
@@ -212,6 +218,17 @@ class Fido2Server {
       );
     }
     key.validate();
+    final attestation = verifyAttestation(
+      format,
+      object[CborString('attStmt')] as CborMap,
+      data,
+      clientData,
+      config,
+    );
+    if (config.attestationVerifier != null &&
+        !config.attestationVerifier!(attestation)) {
+      throw const FormatException('Attestation rejected by application policy');
+    }
     return RegisteredCredential(
       id: data.credentialId!,
       publicKey: key,
@@ -219,6 +236,7 @@ class Fido2Server {
       backupEligible: data.backupEligible,
       backedUp: data.backedUp,
       userHandle: userHandle,
+      attestation: attestation,
     );
   }
 
@@ -389,6 +407,7 @@ class Fido2Server {
       backupEligible: stored.backupEligible,
       backedUp: stored.backedUp,
       userHandle: stored.userHandle,
+      attestation: stored.attestation,
     );
   }
 

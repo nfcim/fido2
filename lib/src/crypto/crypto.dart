@@ -134,6 +134,20 @@ class RustCrypto {
     _call({'op': 'validate', 'algorithm': algorithm, 'key': key});
   }
 
+  /// Checks the packed leaf certificate profile and AAGUID binding, returning
+  /// its public key (SEC1 for ES256, raw for Ed25519). Does not establish trust
+  /// or validate the certificate chain, validity period or revocation status.
+  static Uint8List packedCertificatePublicKey(
+    String algorithm,
+    List<int> certificate,
+    List<int> aaguid,
+  ) => _call({
+    'op': 'packed_certificate_key',
+    'algorithm': algorithm,
+    'key': certificate,
+    'message': aaguid,
+  });
+
   /// Low-level Pure ML-DSA permits a context up to 255 bytes. COSE RFC 9964
   /// requires empty context.
   static bool verify(

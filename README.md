@@ -100,10 +100,55 @@ final verification = await server.completeVerification(
 print(verification.userPresent);
 ```
 
-Registration supports `fmt=none` and validates the public key. Persist
+Registration supports `fmt=none` and `fmt=packed` and validates the public key. Persist
 `verification.signCount` and `verification.backedUp` after authentication.
 `Fido2Config.signatureAlgorithms` controls algorithm order and defaults to ES256
 and Ed25519. See [algorithm configuration](example/algorithm_config.dart).
+
+### Packed attestation
+
+Both `registerComplete()` and `completeRegistration()` verify packed signatures
+over the original `authData || SHA256(clientDataJSON)` bytes. Packed self
+attestation uses the credential's configured COSE algorithm. Certificate-based
+packed attestation supports ES256/P-256 and Ed25519 certificate keys, independently
+of the credential algorithm. ECDAA is not supported.
+
+```dart
+final server = Fido2Server(Fido2Config(
+  rpId: 'dev.canokeys.org',
+  attestation: AttestationConveyancePreference.direct,
+));
+final registered = server.registerComplete(
+  payload['credential'] as Map<String, dynamic>,
+  expectedChallenge: savedRequest.challenge,
+  offeredAlgorithms: savedRequest.offeredAlgorithms,
+  userHandle: accountUserId,
+);
+final evidence = registered.attestation!;
+// evidence.format: 'none' or 'packed'
+// evidence.type: AttestationType.none, self, or basic
+// evidence.aaguid: 16 bytes; evidence.trustPath: leaf-first DER certificates
+```
+
+The default conveyance preference remains `none`, while the default accepted
+formats are `{'none', 'packed'}`. Set `attestationFormats: {'none'}` to retain the
+previous response policy. Conveyance preference is a client request, not a
+requirement that the response contain a certificate.
+
+The shared Rust native/WASM backend checks the packed leaf certificate's v3
+profile, required Subject fields (PrintableString/UTF8String), Basic Constraints
+`CA=false`, key algorithm and optional non-critical AAGUID extension. Signature
+verification **does not establish certificate-chain or vendor trust**. Results
+retain the evidence without labeling it trusted.
+
+Applications that require trusted devices can set
+`attestationVerifier: (evidence) => yourTrustPolicy(evidence)`. This synchronous
+callback runs after protocol and signature verification for all accepted formats,
+including `none` and self attestation; return `false` to reject registration.
+The application owns chain validation against trusted roots/metadata, validity
+periods and revocation checks. For asynchronous trust services, inspect the
+returned evidence and complete those checks before persisting the credential.
+An omitted callback accepts valid evidence without a vendor trust requirement.
 
 ## Serialization
 

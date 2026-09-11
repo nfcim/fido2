@@ -1,4 +1,5 @@
 import '../cose.dart';
+import 'entities/attestation.dart';
 
 class Fido2Config {
   final String rpId;
@@ -8,6 +9,16 @@ class Fido2Config {
   final CoseConfiguration cose;
   final bool requireUserVerification;
 
+  /// Client conveyance preference; independent of the accepted response formats.
+  final AttestationConveyancePreference attestation;
+
+  /// Accepted formats. Defaults to none/packed; use {'none'} for the old policy.
+  final Set<String> attestationFormats;
+
+  /// Optional application trust policy, applied after protocol verification.
+  /// Without it, packed signatures are checked but vendor trust is not asserted.
+  final AttestationVerifier? attestationVerifier;
+
   Fido2Config({
     required this.rpId,
     String? rpName,
@@ -15,10 +26,20 @@ class Fido2Config {
     List<int> signatureAlgorithms = const [ES256.algorithm, Ed25519.algorithm],
     CoseConfiguration? cose,
     this.requireUserVerification = false,
+    this.attestation = AttestationConveyancePreference.none,
+    Set<String> attestationFormats = const {'none', 'packed'},
+    this.attestationVerifier,
   }) : rpName = rpName ?? rpId,
        origins = Set.unmodifiable(origins ?? {'https://$rpId'}),
        signatureAlgorithms = List.unmodifiable(signatureAlgorithms),
+       attestationFormats = Set.unmodifiable(attestationFormats),
        cose = cose ?? CoseConfiguration() {
+    if (this.attestationFormats.isEmpty ||
+        this.attestationFormats.any(
+          (fmt) => fmt != 'none' && fmt != 'packed',
+        )) {
+      throw ArgumentError('Supported attestation formats: none, packed');
+    }
     if (rpId.isEmpty ||
         this.origins.isEmpty ||
         signatureAlgorithms.isEmpty ||

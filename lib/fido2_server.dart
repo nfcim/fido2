@@ -3,6 +3,7 @@ library;
 
 export 'src/server/base.dart';
 export 'src/server/config.dart';
+export 'src/server/entities/attestation.dart';
 export 'src/server/entities/authenticator_data.dart';
 export 'src/server/entities/registration_data.dart';
 export 'src/server/entities/verification_data.dart';

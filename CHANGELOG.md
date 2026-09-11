@@ -1,3 +1,12 @@
+## 2.0.1
+
+* Verify packed certificate and self attestation through both registration APIs.
+  Add configurable conveyance/accepted formats, immutable attestation evidence
+  and an optional synchronous application trust policy. Validate ES256/Ed25519
+  leaf certificate profiles in the shared Rust native/WASM backend; certificate
+  chain trust remains application-owned. Default accepted formats are none/packed.
+* Rebuild the native/Web Rust backend to enable packed certificate validation.
+
 ## 2.0.0
 
 * Add `supportedSignatureAlgorithms()`; `supportedAlgorithms()` includes

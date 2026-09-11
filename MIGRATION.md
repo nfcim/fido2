@@ -2,6 +2,18 @@
 
 ## API changes
 
+Registration now accepts verified `packed` attestation as well as `none`.
+Set `Fido2Config.attestationFormats: {'none'}` to preserve the old acceptance
+policy. The request preference still defaults to `none`; set `attestation` to
+`AttestationConveyancePreference.direct` when requesting device certificates.
+Both registration APIs remain synchronous and expose optional `attestation`
+evidence on their result entities (always populated by successful registration).
+Existing manual result/credential constructors remain valid. Certificate chain
+trust is an application decision via `Fido2Config.attestationVerifier` or an
+external check before persistence; default verification does not assert trust.
+Rebuild native and Web backends with `dart run fido2:setup` / `--web` for the new
+packed certificate operation.
+
 `Ctap2.create` accepts `configuration` and `coseConfiguration`. The six static
 CTAP encode/decode helpers, `src/authenticator_data.dart` import, and flat
 `aaguid` and `credentialId` accessors are available.

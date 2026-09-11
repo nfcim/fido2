@@ -11,6 +11,14 @@ actual WebAuthn authenticatorData and SHA-256(clientDataJSON) message.
 `fixtures.dart`: generated from the JSON by `tool/embed_fixtures.py` so VM and
 browser tests use identical data without network requests.
 
+`packed.json`: synthetic packed certificates and signatures produced by
+`tool/generate_packed_fixtures.py` using Python `cryptography` (OpenSSL), with
+public fixed test keys. Includes an ES256 leaf attesting an Ed25519 credential,
+an Ed25519 leaf/self signature, a test root, and invalid certificate profiles.
+These contain no production device certificates. Regeneration requires Python
+`cryptography`, followed by `python3 tool/embed_fixtures.py`; tests need neither
+Python nor OpenSSL. ECDSA signatures may differ on regeneration.
+
 Small standard vectors are embedded in tests: GB/T 32918.2 SM2 (public key
 09F9DF.../CCEA49..., message `message digest`, ID `1234567812345678`), RFC 8032
 section 7.1 test 1, RFC 6979 Appendix A.2.5 `sample`, RFC 5869 Appendix A.1,

@@ -1,4 +1,5 @@
 //! Shared native/WASM cryptography. The wire interface is versioned JSON with byte arrays.
+mod attestation;
 use aes::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use der::{asn1::UintRef, Decode, Sequence};
 use hmac::{Hmac, Mac};
@@ -199,6 +200,7 @@ pub fn execute(r: &Request) -> Result<Vec<u8>> {
             Ok(vec![])
         }
         "verify" => Ok(vec![u8::from(verify(r)?)]),
+        "packed_certificate_key" => attestation::packed_certificate_key(r),
         "aes_encrypt" | "aes_decrypt" => {
             if r.key.len() != 32 || r.iv.len() != 16 || r.message.len() % 16 != 0 {
                 return Err("invalid_length");

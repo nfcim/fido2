@@ -11,6 +11,7 @@ web/pkg/
 test/
 tool/import_vectors.py
 tool/embed_fixtures.py
+tool/generate_packed_fixtures.py
 tool/test.dart
 rust/tests/
 rust/examples/
