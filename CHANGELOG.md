@@ -1,3 +1,8 @@
+## Unreleased
+
+* Update Dart dependencies and regenerate JSON serializers with the current toolchain.
+* Refresh CI actions and API documentation validation.
+
 ## 2.0.1
 
 * Verify packed certificate and self attestation through both registration APIs.

@@ -26,7 +26,7 @@ Initialize once per isolate with `await RustCrypto.initialize()`. Set
 `build/fido2/web/`, load `fido2_crypto_loader.js` before Dart, and pass the
 `fido2_crypto.js` URL through `wasmModuleUrl`.
 
-See [migration and deployment](MIGRATION.md) for configuration and platform details.
+See the [migration and deployment guide](https://github.com/nfcim/fido2/blob/main/MIGRATION.md) for configuration and platform details.
 
 ## Usage - CTAP2 client
 
@@ -47,10 +47,10 @@ Future<void> demo(CtapDevice device) async {
 }
 ```
 
-More end-to-end CTAP examples are in [`example/pcsc_example.dart`](example/pcsc_example.dart).
+More end-to-end CTAP examples are in [`example/pcsc_example.dart`](https://github.com/nfcim/fido2/blob/main/example/pcsc_example.dart).
 
 Credential management also supports the
-[metadata-only extension](doc/metadata-only-extension.md) for efficiently
+[metadata-only extension](https://github.com/nfcim/fido2/blob/main/doc/metadata-only-extension.md) for efficiently
 listing credentials without transferring complete public keys.
 
 ## Usage - WebAuthn server
@@ -103,7 +103,7 @@ print(verification.userPresent);
 Registration supports `fmt=none` and `fmt=packed` and validates the public key. Persist
 `verification.signCount` and `verification.backedUp` after authentication.
 `Fido2Config.signatureAlgorithms` controls algorithm order and defaults to ES256
-and Ed25519. See [algorithm configuration](example/algorithm_config.dart).
+and Ed25519. See [algorithm configuration](https://github.com/nfcim/fido2/blob/main/example/algorithm_config.dart).
 
 ### Packed attestation
 
@@ -157,7 +157,7 @@ Special cases with manual `toJson`: `CoseKey` and `CtapError`.
 
 ## Examples
 
-- See [`example/`](example) for snippets and the PC/SC transport demo.
+- See the [`example/` directory](https://github.com/nfcim/fido2/tree/main/example) for snippets and the PC/SC transport demo.
 
 ## Additional information
 
